@@ -55,20 +55,21 @@ c1.metric("Document","CIM analyzed")
 c2.metric("Financial periods",len(st.session_state.financials["periods"]))
 c3.metric("Hold period",f"{HOLD_YEARS} years")
 c4.metric("Return hurdle",f"≥{EXACT_MOIC_FOR_TARGET_IRR:.2f}x / ≥25%")
+st.caption("One management case only. No scenario toggle or analyst-modified operating projections.")
 st.caption("Historical sources are written into the Excel model as source-page comments and a SUMMARY source-audit log, not displayed as a separate screen.")
 model_tab,memo_tab,review_tab=st.tabs(["1 · Full 14-tab LBO","2 · Two-page IC memo","3 · Verification"])
 
 with model_tab:
-    st.markdown("### Rebuild your integrated Excel template")
-    st.write("Upload your **14-tab .xlsx template** each time. DealLens copies its layouts, formulas, debt schedule, three statements, case switches and capitalization waterfall while replacing mapped CIM financial inputs.")
-    st.caption("Five-year hold is fixed: the close date is the selected base year-end and exit date is exactly five calendar years later. 3.0x over five years is ~24.6% IRR; the 25% target requires ~3.05x.")
+    st.markdown("### Five-year management-case LBO")
+    st.write("Upload your **14-tab .xlsx template** each time. DealLens preserves the financial statement, debt and returns schedules, but deletes the management/base/downside case toggle. All operating projections use only CIM management figures.")
+    st.caption("Only the five CIM management projection years feed the model. Select the final actual year before those projections. If any management forecast year is missing, model generation stops rather than extrapolating or inheriting old template figures. Five-year hold is fixed; 25% IRR requires about 3.05x MOIC.")
     original=st.file_uploader("Integrated 14-tab Excel LBO template (.xlsx)",type=["xlsx"],key="integrated_template")
     periods=st.session_state.financials["periods"]
     future=sorted({p["year"] for p in periods if p["kind"] in ("estimate","projection")})
     actual=sorted({p["year"] for p in periods if p["kind"]=="actual"})
-    initial=(future[0] if future else (actual[-1] if actual else 2025))
+    initial=(actual[-1] if actual else (future[0]-1 if future else 2025))
     base=st.number_input("Base / entry financial year (FY)",min_value=1990,max_value=2100,value=int(initial),
-                         help="The template assumes 4 base/historical years followed by 5 projections. Use the final pre-close year.")
+                         help="Use the last actual fiscal year. The next five fiscal years must be directly supported by the CIM management plan.")
     if not periods:st.warning("No full CIM financial periods extracted. Analyze a CIM containing detailed financials to build a usable underwriting model.")
     if original and periods and st.button("Generate 14-tab LBO",type="primary"):
         try:
