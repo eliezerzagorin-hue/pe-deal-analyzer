@@ -109,7 +109,7 @@ def export_two_page_ic(company,memo,moic=None,irr=None,verified=False,issues=Non
     _title(doc,"7. Potential Exit Strategies / Buyer Universe")
     _body(doc,memo.get("potential_exit_strategies_buyer_universe",""),510)
     _title(doc,"8. Recommendation")
-    _body(doc(status+". "+rationale,350))
+    _body(doc,status+". "+rationale,350)
     _body(doc,"Memo narrative is not an authorization to transact. Only the independently verified sponsor-return gate above controls the recommendation.",200)
     _title(doc,"Open Diligence & Return Verification")
     if issues:
