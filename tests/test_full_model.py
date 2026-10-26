@@ -104,15 +104,28 @@ def test_strict_return_gate():
     assert recommendation(3.5,.30,True,["Unreconciled cash flow"])[0]=="HOLD / FURTHER DILIGENCE"
     assert recommendation(3.5,.30,True,[])[0]=="HOLD / FURTHER DILIGENCE"
 
-def test_word_memo_has_all_sections_and_explicit_page_break():
+def test_word_memo_is_monochrome_eleven_point_with_substantive_sections():
+    from docx.shared import Pt
     data=export_two_page_ic("Demo Company",demo_memo(),moic=2.9,irr=.24,verified=True,issues=[])
     doc=__import__("docx").Document(BytesIO(data))
     all_text=" ".join(p.text for p in doc.paragraphs)
-    assert "COMPANY / BUSINESS OVERVIEW" in all_text
-    assert "RECOMMENDATION" in all_text
+    for section in ("Business Overview", "Historical Financial Performance", "Market and Competition",
+                    "Growth Opportunities", "Investment Merits, Risks and Mitigants",
+                    "Investment Thesis", "Potential Exits and Buyer Universe", "Recommendation"):
+        assert section in all_text
     assert "DO NOT PROCEED" in all_text
-    assert "five years" in all_text.lower()
+    assert "Screening (continued)" not in all_text
+    assert "DEALLENS" not in all_text
+    assert doc.styles["Normal"].font.size >= Pt(11)
+    for paragraph in list(doc.paragraphs) + [p for t in doc.tables for row in t.rows for cell in row.cells for p in cell.paragraphs]:
+        for run in paragraph.runs:
+            if not run.text.strip():
+                continue
+            assert run.font.size is None or run.font.size >= Pt(11)
+            assert run.font.name in (None, "Times New Roman")
+            assert run.font.color.rgb is None or tuple(run.font.color.rgb) == (0,0,0)
     import zipfile
     with zipfile.ZipFile(BytesIO(data)) as z:
         xml=z.read("word/document.xml")
     assert b'w:type="page"' in xml
+
