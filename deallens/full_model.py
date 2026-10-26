@@ -232,8 +232,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     for row in range(62,75):
         for cells in assumptions.iter_rows(min_row=row,max_row=row):
             for cell in cells:
-                if cell.data_type!="f" or row!=62:
-                    cell.value=None
+                cell.value=None
         assumptions.row_dimensions[row].hidden=True
     assumptions["B62"]=None
     assumptions["B68"]=None
@@ -364,7 +363,13 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                 else:
                     issues.append(f"FY{yr}: COGS breakout exceeds disclosed COGS total")
             if p and p.get("total_opex") is not None and all(p.get(f) is None for f in ["executive","administration","rent","sales","maintenance","production","other_opex"]):
-                _put(wb,"EXP",f"{col}58",p["total_opex"]*1000,p["source_page"],"Aggregate management opex")
+                # EXP!col60 carries depreciation separately, so avoid counting it twice.
+                operating_ex_dep=p["total_opex"]-(p.get("depreciation") or 0)
+                if operating_ex_dep < -0.0001:
+                    issues.append(f"FY{yr}: disclosed operating expenses are below depreciation")
+                    operating_ex_dep=0
+                _put(wb,"EXP",f"{col}58",operating_ex_dep*1000,p["source_page"],
+                     "Aggregate management Opex excluding separately entered D&A; verify CIM presentation")
                 wb["EXP"]["B58"]="Aggregate Opex (no breakdown)"
             if (p and p.get("revenue") is not None and
                 p.get("total_cogs") is None and all(p.get(x) is None for x in ["materials","labor","other_cogs"])):
@@ -381,7 +386,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     wb["R"]["B10"]=f"FY{base_year+HOLD_YEARS}P Adjusted EBITDA"
     # Testable checks on the existing returns page, outside its visible report.
     wb["R"]["B101"]="AUDIT: source forecast and projected equity valuation"
-    wb["R"]["C101"]="=SUMPRODUCT(ABS(IS!I35:M35))"
+    wb["R"]["C101"]="=SUM("+",".join(f"IFERROR(ABS(IS!{c}35),0)" for c in "IJKLM")+")"
     wb["R"]["B102"]="AUDIT: exit equity less sponsor and rollover proceeds"
     wb["R"]["C102"]="=R!E15-CAP!H51"
     wb["R"]["B103"]="AUDIT: equity waterfall balance"
@@ -392,6 +397,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     for address in ("F37","F38"):
         _put(wb,"ASSUMPTIONS",address,0,None,"New deal rollover unconfirmed; set manually")
     issues.extend([
+        "Only the management plan from the CIM is modeled; investor base/downside scenarios and the selector have been removed.",
         "Entry/exit valuation, leverage, debt pricing, tax structure and rollover are analyst assumptions, not verified CIM facts.",
         "No preferred PIK or MIP is assumed without deal-specific terms; verify the sponsor, seller and management waterfall.",
         "COMPS tab has intentionally cleared stale comparables; add independent market data.",
