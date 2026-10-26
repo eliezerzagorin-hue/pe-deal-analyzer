@@ -196,6 +196,8 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
             continue
         if p.get("revenue") is None:
             forecast_issues.append(f"FY{yr} management revenue missing")
+        if p.get("adjusted_ebitda") is None:
+            forecast_issues.append(f"FY{yr} management adjusted EBITDA missing")
         has_cogs=(p.get("total_cogs") is not None or p.get("gross_margin") is not None
                   or any(p.get(k) is not None for k in ("materials","labor","other_cogs")))
         has_opex=(p.get("total_opex") is not None or p.get("cash_opex_ratio") is not None
@@ -242,7 +244,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         assumptions[f"{col}88"]=f"=EXP!{col}60"
     for col in "IJKLM":
         ws=wb["IS"]
-        ws[f"{col}28"]=f"={col}57-SUM({col}20,{col}24:{col}27)"
+        ws[f"{col}28"]=f'=IF(ISNUMBER({col}34),{col}34-SUM({col}20,{col}24:{col}27),0)'
         ws[f"{col}35"]=f'=IF(ISNUMBER({col}34),{col}31-{col}34,"")'
     wb["R"]["B7"]="CIM MANAGEMENT PLAN | FIVE-YEAR HOLD"
     wb["SUMMARY"]["L19"]="Management only"
@@ -336,6 +338,11 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                   "rent":[("EXP",61)],"sales":[("EXP",62)],
                   "maintenance":[("EXP",63)],"production":[("EXP",64)],
                   "other_opex":[("EXP",65)]}
+            # The management EBITDA line is sourced directly, rather than
+            # summing possibly absent CIM below-the-line items into a false zero.
+            _put(wb,"IS",f"{col}34",p["adjusted_ebitda"]*1000,p["source_page"],
+                 f"FY{yr} adjusted EBITDA as stated by CIM. Model bridge in IS!{col}28.")
+            provenance.append(f"IS!{col}34: FY{yr} stated adjusted EBITDA [CIM p.{p['source_page']}]")
             # All five forecast years were explicitly verified present above.
             # Do not extrapolate a missing fifth year or use legacy assumptions.
             for field,targets in maps.items():
@@ -386,7 +393,8 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     wb["R"]["B10"]=f"FY{base_year+HOLD_YEARS}P Adjusted EBITDA"
     # Testable checks on the existing returns page, outside its visible report.
     wb["R"]["B101"]="AUDIT: source forecast and projected equity valuation"
-    wb["R"]["C101"]="=SUM("+",".join(f"IFERROR(ABS(IS!{c}35),0)" for c in "IJKLM")+")"
+    wb["R"]["B101"]="AUDIT: total implied EBITDA normalization ($000s)"
+    wb["R"]["C101"]="=SUM("+",".join(f"IFERROR(ABS(IS!{c}28),0)" for c in "IJKLM")+")"
     wb["R"]["B102"]="AUDIT: exit equity less sponsor and rollover proceeds"
     wb["R"]["C102"]="=R!E15-CAP!H51"
     wb["R"]["B103"]="AUDIT: equity waterfall balance"
@@ -401,6 +409,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         "Entry/exit valuation, leverage, debt pricing, tax structure and rollover are analyst assumptions, not verified CIM facts.",
         "No preferred PIK or MIP is assumed without deal-specific terms; verify the sponsor, seller and management waterfall.",
         "COMPS tab has intentionally cleared stale comparables; add independent market data.",
+        "Every management EBITDA forecast is CIM-sourced; investigate IS line 28 implied normalization and tie every cost schedule back to the CIM.",
         "Forecast and historical numbers remain unverified until audited against source CIM.",
         "Open the generated file in Excel and recalculate before using sponsor returns."
     ])
