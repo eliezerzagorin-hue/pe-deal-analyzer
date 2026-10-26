@@ -1,9 +1,10 @@
 """Smoke test the actual deployed Streamlit entry point, not only backend modules."""
 from streamlit.testing.v1 import AppTest
+from pathlib import Path
 
 
 def test_streamlit_homepage_loads_without_exception():
-    at=AppTest.from_file("app.py",default_timeout=30).run()
+    at=AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py",default_timeout=30).run()
     assert not at.exception, "\n".join(str(e.message) for e in at.exception)
     assert at.title
     assert "DealLens" in at.title[0].value
