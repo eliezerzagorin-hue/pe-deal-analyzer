@@ -3,7 +3,7 @@ from io import BytesIO
 
 import pytest
 from openpyxl import Workbook,load_workbook
-from deallens.full_model import REQUIRED,make_integrated_model,recommendation,read_recalculated_returns
+from deallens.full_model import REQUIRED,make_integrated_model,recommendation,read_recalculated_returns,HOLD_YEARS,EXACT_MOIC_FOR_TARGET_IRR
 from deallens.ic_brief import export_two_page_ic
 from deallens.demo import demo_memo
 
@@ -46,13 +46,20 @@ def test_populate_all_14_tabs_with_cim_sources():
     assert wb["ASSUMPTIONS"]["F18"].value==7.0
     assert wb["SUMMARY"]["B101"].value.startswith("SOURCE AUDIT")
     assert issues
+    assert wb["ASSUMPTIONS"]["F12"].value == "=DATE(2025,12,31)"
+    assert wb["ASSUMPTIONS"]["F13"].value == "=DATE(2030,12,31)"
 
 def test_strict_return_gate():
-    assert recommendation(3.0,.25,True,[])[0]=="CONDITIONAL PROCEED"
+    assert HOLD_YEARS == 5
+    assert EXACT_MOIC_FOR_TARGET_IRR == pytest.approx(3.0517578125)
+    assert 3.0 ** (1 / HOLD_YEARS) - 1 == pytest.approx(0.2457309396155174)
+    assert recommendation(EXACT_MOIC_FOR_TARGET_IRR,.25,True,[])[0]=="CONDITIONAL PROCEED"
+    assert recommendation(3.0,.25,True,[])[0]=="DO NOT PROCEED"
     assert recommendation(2.99,.25,True,[])[0]=="DO NOT PROCEED"
     assert recommendation(3.5,.249,True,[])[0]=="DO NOT PROCEED"
     assert recommendation(3.5,.30,False,[])[0]=="HOLD / FURTHER DILIGENCE"
     assert recommendation(3.5,.30,True,["Unreconciled cash flow"])[0]=="HOLD / FURTHER DILIGENCE"
+    assert recommendation(3.5,.30,True,[])[0]=="HOLD / FURTHER DILIGENCE"
 
 def test_word_memo_has_all_sections_and_explicit_page_break():
     data=export_two_page_ic("Demo Company",demo_memo(),moic=2.9,irr=.24,verified=True,issues=[])
@@ -61,6 +68,7 @@ def test_word_memo_has_all_sections_and_explicit_page_break():
     assert "COMPANY / BUSINESS OVERVIEW" in all_text
     assert "RECOMMENDATION" in all_text
     assert "DO NOT PROCEED" in all_text
+    assert "five years" in all_text.lower()
     import zipfile
     with zipfile.ZipFile(BytesIO(data)) as z:
         xml=z.read("word/document.xml")
