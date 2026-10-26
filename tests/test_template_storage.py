@@ -20,7 +20,7 @@ def test_saved_template_decodes_only_when_configured(monkeypatch):
     monkeypatch.delenv(KEY, raising=False)
     assert get_saved_template({}) is None
     encoded = example_encoded_template()
-    result = get_saved_template({KEY: encoded})
+    result = get_saved_template({"lbo_template": {"gzip_base64": encoded}})
     assert result.startswith(b"PK")
     assert result == decode_template(encoded)
 
@@ -28,7 +28,7 @@ def test_saved_template_decodes_only_when_configured(monkeypatch):
 def test_environment_template_configuration(monkeypatch):
     encoded = example_encoded_template()
     monkeypatch.setenv(KEY, encoded)
-    assert get_saved_template({KEY: "incorrect"}).startswith(b"PK")
+    assert get_saved_template({"lbo_template": {"gzip_base64": "incorrect"}}).startswith(b"PK")
 
 
 def test_reject_invalid_or_truncated_template():
