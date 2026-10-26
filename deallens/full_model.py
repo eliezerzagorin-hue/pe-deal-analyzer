@@ -171,6 +171,18 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     wb["ASSUMPTIONS"]["F12"]=f"=DATE({base_year},12,31)"
     wb["ASSUMPTIONS"]["F13"]=f"=DATE({base_year+5},12,31)"
     wb["ASSUMPTIONS"]["F9"]=2
+    # Clean starting transaction assumptions; do not inherit another sponsor's terms.
+    for address,value in {
+        "F18":7.0,"F20":7.0,"F23":3.0,"F25":0.05,"F26":0.055,
+        "F28":0.0,"F29":0.05,"F31":0.05,"F32":0.8,"F33":0.0,
+        "F41":0.02,"F45":0.26,"F47":0,"F48":15}.items():
+        _put(wb,"ASSUMPTIONS",address,value,None,"Editable illustrative underwriting assumption")
+    wb["CAP"]["F11"]=0.0
+    wb["CAP"]["F12"]=0.0
+    wb["ASSUMPTIONS"]["F46"]=0.0
+    if by_year.get(base_year,{}).get("capex") is not None:
+        _put(wb,"ASSUMPTIONS","F46",by_year[base_year]["capex"]*1000,
+             by_year[base_year]["source_page"],"Base-year capex proxy; analyst review")
     for idx in range(5,14):
         col=__import__("openpyxl").utils.get_column_letter(idx)
         yr=base_year-3+(idx-5)
@@ -227,8 +239,18 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                   "maintenance":[("EXP",63)],"production":[("EXP",64)],
                   "other_opex":[("EXP",65)]}
             if not p or p.get("revenue") is None:
-                # Must not inherit the prior company's forecast.
-                issues.append(f"FY{yr}: no CIM forecast revenue, manual forecast required")
+                # Extension one year beyond CIM forecast, labeled as analyst extrapolation.
+                if col=="M" and by_year.get(yr-1,{}).get("revenue") is not None:
+                    wb["ASSUMPTIONS"]["M57"]="=L57"
+                    wb["REV"]["M14"]="=L14*(1+ASSUMPTIONS!M57)"
+                    for erow in list(range(53,57))+list(range(58,67)):
+                        cell=wb["EXP"][f"M{erow}"]
+                        if cell.data_type!="f":
+                            cell.value=f"=IFERROR(L{erow}/REV!L14*REV!M14,0)"
+                    wb["ASSUMPTIONS"]["M76"]="=L76"
+                    issues.append(f"FY{yr}: analyst extension beyond CIM, validate the assumption before reliance")
+                else:
+                    issues.append(f"FY{yr}: no CIM forecast revenue, manual forecast required")
             for field,targets in maps.items():
                 for sheet,row in targets:
                     if p and p.get(field) is not None:
@@ -240,9 +262,9 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
             if p and p.get("total_opex") is not None and all(p.get(f) is None for f in ["executive","administration","rent","sales","maintenance","production","other_opex"]):
                 _put(wb,"EXP",f"{col}58",p["total_opex"]*1000,p["source_page"],"Aggregate management opex")
                 wb["EXP"]["B58"]="Aggregate Opex (no breakdown)"
-            if not p or p.get("revenue") is None or (
-                    p.get("total_cogs") is None and all(p.get(x) is None for x in ["materials","labor","other_cogs"])):
-                issues.append(f"FY{yr}: projection needs revenue and COGS reconciliation")
+            if (p and p.get("revenue") is not None and
+                p.get("total_cogs") is None and all(p.get(x) is None for x in ["materials","labor","other_cogs"])):
+                issues.append(f"FY{yr}: projection needs COGS reconciliation")
             # Investor base and downside are distinguished from CIM management plan.
             wb["ASSUMPTIONS"][f"{col}63"]=f"={col}57-0.02"
             wb["ASSUMPTIONS"][f"{col}64"]=f"=MAX(0,{col}58-0.02)"
