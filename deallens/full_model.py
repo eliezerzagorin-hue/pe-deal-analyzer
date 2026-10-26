@@ -435,6 +435,23 @@ def read_recalculated_returns(workbook_bytes,company):
         raise ValueError("The hold-period formula is not calculated. Recalculate and save in Excel.")
     if not math.isclose(float(hold),HOLD_YEARS,abs_tol=1e-8):
         raise ValueError(f"DealLens requires a {HOLD_YEARS}-year hold, but this model uses {hold:g} years.")
+    # A plausible MOIC is meaningless if the balance sheet, debt or exit
+    # equity waterfall fails to tie. All tests use Excel's cached values.
+    for column in "IJKLM":
+        balance_check=wb["BS"][f"{column}30"].value
+        if not isinstance(balance_check,(float,int)) or not math.isfinite(balance_check):
+            raise ValueError(f"FY {column}: balance sheet check is not calculated.")
+        if abs(balance_check)>1.0:  # Source workbook in USD thousands
+            raise ValueError(f"FY {column}: balance sheet does not balance by {balance_check:,.1f} ($000s).")
+        total_debt=wb["DEBT"][f"{column}32"].value
+        if not isinstance(total_debt,(float,int)) or total_debt < -0.01:
+            raise ValueError(f"FY {column}: debt rollforward has an invalid ending balance.")
+    for address,label in (("C102","exit equity allocation"),("C103","equity waterfall")):
+        check=wb["R"][address].value
+        if not isinstance(check,(float,int)) or not math.isfinite(check):
+            raise ValueError(f"{label} check is not calculated. Recalculate and save the full workbook in Excel.")
+        if abs(check)>1.0:
+            raise ValueError(f"{label} does not reconcile ({check:,.1f} $000s). Correct the model before relying on returns.")
     moic=wb["R"]["E21"].value; irr=wb["R"]["E22"].value
     if (not isinstance(moic,(float,int)) or isinstance(moic,bool) or
         not isinstance(irr,(float,int)) or isinstance(irr,bool)):
