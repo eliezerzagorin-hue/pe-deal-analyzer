@@ -114,6 +114,8 @@ def _cleanup(wb):
         ("NWC",[10,11,12,15,16],range(7,8)),
         ("BS",[10,11,12,13,15,16],range(7,8)),
         ("ASSUMPTIONS",[76],range(9,14)),
+        ("IS",list(range(50,57)),range(5,13)),
+        ("BS",list(range(10,29)),range(7,8)),
         ("COMPS",list(range(10,15)),range(5,9)),
         ("COMPS",list(range(21,40)),range(2,10)),
     ]:
@@ -124,6 +126,19 @@ def _cleanup(wb):
                 if cell.data_type!="f" and isinstance(cell.value,(int,float)):
                     cell.value=None
                     cell.comment=None
+    # Clear any old public trading comps and precedent transaction names and dates.
+    ws=wb["COMPS"]
+    for row in list(range(10,15))+list(range(21,40)):
+        for col in range(2,10):
+            cell=ws.cell(row,col)
+            if cell.data_type!="f":
+                cell.value=None
+                cell.comment=None
+    # Clear old customer concentration data and end-market descriptions.
+    ws=wb["REV"]
+    for row in range(24,34):
+        for col in (4,8,9,12):
+            if ws.cell(row,col).data_type!="f":ws.cell(row,col).value=None
     # No stale deals/ownership/competitors in text labels.
     for sheet in wb:
         for row in sheet.iter_rows():
@@ -203,9 +218,11 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
             if p and p.get("total_cogs") is not None and any(p.get(x) is None for x in ["materials","labor","other_cogs"]):
                 # Put the total in a clearly named aggregate cost row; keep others blank.
                 wb["EXP"]["B10"]="Aggregate COGS (detail not available)"
+                for rr in (11,12):wb["EXP"][f"{col}{rr}"].value=None
                 _put(wb,"EXP",f"{col}10",p["total_cogs"]*1000,p["source_page"],"COGS aggregate, detail unavailable")
             if p and p.get("total_opex") is not None and any(p.get(x) is None for x in ["executive","administration","rent","sales","maintenance","production","other_opex"]):
                 wb["EXP"]["B19"]="Aggregate operating expenses (detail unavailable)"
+                for rr in list(range(20,28)):wb["EXP"][f"{col}{rr}"].value=None
                 _put(wb,"EXP",f"{col}19",p["total_opex"]*1000,p["source_page"],"Operating expenses aggregate")
             if idx==7 and p:
                 for field,sheet,row in [("cash","BS",10),("accounts_receivable","NWC",10),
@@ -256,6 +273,11 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                     if p and p.get(field) is not None:
                         _put(wb,sheet,f"{col}{row}",p[field]*1000,p["source_page"],f"FY{yr} management projection")
                         provenance.append(f"{sheet}!{col}{row}: FY{yr} {field} [CIM p.{p['source_page']}]")
+            if p and p.get("total_cogs") is None and p.get("gross_margin") is not None and p.get("revenue") is not None:
+                p=dict(p,total_cogs=p["revenue"]*(1-p["gross_margin"]))
+            if p and p.get("total_opex") is None and p.get("cash_opex_ratio") is not None and p.get("revenue") is not None:
+                p=dict(p,total_opex=p["revenue"]*p["cash_opex_ratio"]+
+                       (p.get("depreciation") or 0))
             if p and p.get("total_cogs") is not None and all(p.get(f) is None for f in ["materials","labor","other_cogs"]):
                 _put(wb,"EXP",f"{col}53",p["total_cogs"]*1000,p["source_page"],"Aggregate management COGS")
                 wb["EXP"]["B53"]="Aggregate COGS (no breakdown)"
