@@ -5,7 +5,7 @@ from io import BytesIO
 
 import pytest
 from openpyxl import Workbook
-from deallens.template_storage import decode_template, get_saved_template, validate_integrated_template, REQUIRED_SHEETS, KEY
+from deallens.template_storage import decode_template, get_saved_template, validate_integrated_template, decode_private_config, REQUIRED_SHEETS, KEY
 
 
 def example_encoded_template():
@@ -67,3 +67,11 @@ def test_reject_correct_tabs_when_input_cells_are_formulas():
 
 def example_decoded_template():
     return gzip.decompress(base64.b64decode(example_encoded_template()))
+
+def test_import_original_saved_template_toml_as_session_fallback():
+    encoded=example_encoded_template()
+    raw=("[lbo_template]\ngzip_base64 = \"" + encoded + "\"\n").encode()
+    result=decode_private_config(raw)
+    assert validate_integrated_template(result)["sheet_count"]==14
+    with pytest.raises(ValueError, match="Missing"):
+        decode_private_config(b"[lbo_template]\n")
