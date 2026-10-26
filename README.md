@@ -24,6 +24,15 @@ Without an OpenAI API key, click **Load fictional demo** to explore the model an
 3. In advanced settings, add `OPENAI_API_KEY = "..." ` only if you want server-side AI enabled.
 4. Deploy. Hosting is free on Community Cloud's eligible tier, while API usage is billed separately.
 
+
+## Existing Excel template overlay
+
+The **Excel template** tab accepts a user-provided `.xlsx` workbook compatible with a recognized integrated 14-tab LBO structure. It previews a small allowlisted set of transaction and financing assumptions, and lets an analyst select and approve exact numeric changes. Calculated Excel cells are never intentionally overwritten; formulas remain in the workbook and Excel recalculates them when opened.
+
+**This is a manual-reviewed assumptions overlay, not automatic reconstruction of a deal from a CIM.** Existing historicals, forecast assumptions, working-capital schedules, tax basis, ownership, and operating cases remain as they were in the uploaded workbook unless explicitly changed. Do not repurpose a populated model for another transaction without auditing and replacing all deal-specific inputs.
+
+The mapper contains only generic worksheet names, row labels, and cell addresses. It contains no third-party model, CIM, deal figures, document text, or client data. Some Excel features may not survive the workbook round-trip: independently compare exported sheets, formulas, formatting and calculations before using any model in an investment decision.
+
 ## Important limitations
 
 - **Prototype, not investment advice.** AI-extracted claims and financial values are explicitly unverified until an analyst checks them against original source documents.
