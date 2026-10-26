@@ -15,7 +15,7 @@ streamlit run app.py
 
 Windows: activate with `.venv\Scripts\activate`.
 
-Without an OpenAI API key, click **Load fictional demo** to explore the model and exports. To analyze a real PDF, enter your own key in the app sidebar or configure `OPENAI_API_KEY` as a Streamlit secret.
+Without an OpenAI API key, click **Explore fictional demo** to explore the interface. To analyze a real PDF, enter your own key in the app sidebar or configure `OPENAI_API_KEY` as a Streamlit secret.
 
 ## Deploy free
 
@@ -29,14 +29,19 @@ Without an OpenAI API key, click **Load fictional demo** to explore the model an
 
 1. Upload a **searchable PDF CIM** and provide your own OpenAI API key.
 2. Select **Analyze CIM**. The app extracts the eight IC memo narratives and a separate structured annual financial dataset in USD millions; missing and inconsistent fields remain unverified.
-3. Upload your own compatible **14-tab `.xlsx` LBO template** in the **Full 14-tab LBO** screen. DealLens does not ship any customer's workbook or confidential information in the GitHub repository.
+3. **One-time template setup:** Paste a gzip/base64-encoded copy of the 14-tab workbook into your Streamlit app's private **Settings → Secrets** tab using the following TOML structure (the full payload must be generated from a workbook the app owner is authorized to use):
+   ```toml
+   [lbo_template]
+   gzip_base64 = "ENCODED_TEMPLATE_PAYLOAD"
+   ```
+   The app reads this server-side secret automatically for all future deals, with no repeated Excel uploads. A temporary override uploader remains available for testing. Never commit the template, its encoded payload, or a `secrets.toml` to public GitHub. **Base64 and gzip are not encryption.** If Streamlit Cloud rejects the secret because of its size, use approved private object storage instead; do not put the source workbook in the public repository.
 4. Choose the **latest actual financial year** preceding five CIM management forecast years. Generate and download a `.xlsx` containing the **same 14 sheets** as the template: COVER, ASSUMPTIONS, SUMMARY, REV, EXP, D&A, NWC, DEBT, IS, BS, CF, R, COMPS, CAP. The model populates a **single CIM management forecast case**, directly from five management-projected fiscal years, with the company name on the cover and no operating-case selector. Input-cell comments and SUMMARY source audit record CIM source pages; old financial data and comparables are cleared.
 5. **Review all cells, complete unavailable inputs and transaction assumptions manually**, and open the workbook in Excel to recalculate. Keep the model's original integrated formulas, but confirm they make sense for the new business and capital structure. This app does not guarantee all financial details are extracted from a CIM.
 6. Reupload the **Excel-recalculated workbook** in Verification to read sponsor MOIC from `R!E21` and IRR from `R!E22`, confirm assumptions, and download the **two-page formatted Word IC memo**.
 
 **Five-year investment decision policy:** The model is locked to an exactly **5-year hold** from December 31 of the entry year to December 31 five years later. A 3.00x sponsor MOIC implies 24.57% annualized IRR. **25.00% IRR requires 3.05176x MOIC**, approximately 3.05x. A proceed recommendation is prohibited unless both verified sponsor returns meet these equivalent five-year hurdle rates with no unresolved core missing inputs, and they reconcile mathematically. Unverified or stale returns are put on hold. Reaching the thresholds does not equal investment approval.
 
-The Word memo condenses the user's specified eight sections into two intentionally composed pages with a returns-and-recommendation header, business overview, financials, market, growth, risks, thesis and buyer hypotheses.
+The Word memo uses two deliberately composed pages in black-and-white **Times New Roman**, with every visible text run at least **11 pt**. It has only investment-relevant section headings, a company name, return hurdle summary, factual body copy and a returns-gated recommendation.
 
 This is a **prototype that maps the supplied style of workbook**, not a generic model-mapping system. It will reject a workbook with different tab names/order or structural formula locations. If the CIM lacks any of the five management forecast years, forecast revenue, cost support, or adjusted EBITDA, model generation stops and identifies the gaps. No third-party base/downside projections or unprovided sixth-year extrapolation is inserted. Missing historical working capital and transaction assumptions still need analyst review. Comparable-company values are **not** independently researched.
 
