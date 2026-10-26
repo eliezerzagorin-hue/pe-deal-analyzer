@@ -80,14 +80,22 @@ with st.sidebar:
         secret = st.secrets.get(environment_key_name, "")
     except Exception:
         secret = ""
-    key = st.text_input(
+    # Never send server-managed secrets back to the browser as widget defaults.
+    supplied_key = st.text_input(
         f"{provider} API key",
         type="password",
-        value=os.environ.get(environment_key_name, "") or secret,
+        value="",
         key=f"api_key_{provider}",
         help="Use a key from the selected API provider, not a Claude/ChatGPT consumer subscription. "
              "The key does not sandbox the uploaded documents.",
     )
+    server_key = os.environ.get(environment_key_name, "") or secret
+    key = supplied_key.strip() or server_key
+    if server_key and not supplied_key:
+        st.caption(f"Using a configured {provider} API key stored server-side.")
+        st.caption("If this app is publicly accessible, restrict who can trigger your server-side API billing.")
+    if provider == "Gemini":
+        st.caption("Google's unpaid Gemini API tier can use submitted content for product improvement. Do not submit confidential CIMs.")
     st.caption("CIM text is sent only to the selected API vendor. API keys do not provide a confidential sandbox.")
     if st.button("Analyze CIM", type="primary", use_container_width=True, icon=":material/analytics:"):
         if not doc or not key:
