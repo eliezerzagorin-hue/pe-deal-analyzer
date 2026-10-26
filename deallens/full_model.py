@@ -177,12 +177,36 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     if base_year is None:
         future=sorted({int(p["year"]) for p in periods if p.get("kind") in ("estimate","projection")})
         actual=sorted({int(p["year"]) for p in periods if p.get("kind")=="actual"})
-        base_year=(future[0] if future else (actual[-1] if actual else 2025))
+        base_year=(actual[-1] if actual else (future[0]-1 if future else None))
+    if base_year is None:
+        raise ValueError("Unable to identify a historical entry year from the CIM.")
+    base_year=int(base_year)
     by_year={}
     for p in periods:
         year=p["year"]
         if year not in by_year or sum(v is not None for k,v in p.items() if k in FIELDS)>sum(v is not None for k,v in by_year[year].items() if k in FIELDS):
             by_year[year]=p
+    # A five-year hold requires a complete five-year CIM management outlook.
+    # Never invent an extra year or let a former investment's forecast carry over.
+    forecast_issues=[]
+    for yr in range(base_year+1,base_year+HOLD_YEARS+1):
+        p=by_year.get(yr)
+        if not p or p.get("kind") not in ("estimate","projection"):
+            forecast_issues.append(f"FY{yr} management projection missing")
+            continue
+        if p.get("revenue") is None:
+            forecast_issues.append(f"FY{yr} management revenue missing")
+        has_cogs=(p.get("total_cogs") is not None or p.get("gross_margin") is not None
+                  or any(p.get(k) is not None for k in ("materials","labor","other_cogs")))
+        has_opex=(p.get("total_opex") is not None or p.get("cash_opex_ratio") is not None
+                  or any(p.get(k) is not None for k in ("executive","administration",
+                         "rent","sales","maintenance","production","other_opex")))
+        if not has_cogs or not has_opex:
+            forecast_issues.append(f"FY{yr} detailed COGS or Opex forecast missing")
+    if forecast_issues:
+        raise ValueError("Cannot create a CIM-only 5-year LBO. "+
+            "; ".join(forecast_issues)+
+            ". Review the source pages, complete missing CIM data, or upload a CIM with the full outlook.")
     wb["COVER"]["D14"]=str(company)[:125]
     wb["COVER"]["D16"]="DealLens  |  Draft underwriting model  |  Source: uploaded CIM"
     issues=[]; provenance=[]
@@ -197,7 +221,41 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         wb["ASSUMPTIONS"].cell(55,idx).value=f"=DATE({yr},12,31)"
     wb["ASSUMPTIONS"]["F12"]=f"=DATE({base_year},12,31)"
     wb["ASSUMPTIONS"]["F13"]=f"=DATE({base_year+HOLD_YEARS},12,31)"
-    wb["ASSUMPTIONS"]["F9"]=2
+    # Single CIM management case: disable the old three-scenario selector.
+    assumptions=wb["ASSUMPTIONS"]
+    assumptions["B7"]="MANAGEMENT PLAN (CIM ONLY)"
+    assumptions["F7"]="MANAGEMENT CASE"
+    assumptions["B9"]=" "
+    assumptions["F9"]=None
+    assumptions["B56"]="CIM MANAGEMENT FORECAST"
+    assumptions["B78"]="MODEL DRIVERS | CIM MANAGEMENT PLAN"
+    for row in range(62,75):
+        for cells in assumptions.iter_rows(min_row=row,max_row=row):
+            for cell in cells:
+                if cell.data_type!="f" or row!=62:
+                    cell.value=None
+        assumptions.row_dimensions[row].hidden=True
+    assumptions["B62"]=None
+    assumptions["B68"]=None
+    for col in "IJKLM":
+        for active,management in ((79,57),(80,58),(81,59),(82,60)):
+            assumptions[f"{col}{active}"]=f"={col}{management}"
+        assumptions[f"{col}88"]=f"=EXP!{col}60"
+    for col in "IJKLM":
+        ws=wb["IS"]
+        ws[f"{col}28"]=f"={col}57-SUM({col}20,{col}24:{col}27)"
+        ws[f"{col}35"]=f'=IF(ISNUMBER({col}34),{col}31-{col}34,"")'
+    wb["R"]["B7"]="CIM MANAGEMENT PLAN | FIVE-YEAR HOLD"
+    wb["SUMMARY"]["L19"]="Management only"
+    for row in (19,20):
+        wb["REV"].row_dimensions[row].hidden=True
+        for col in (2,3,4,5,6,7,8,9,10,11,12,13):
+            cell=wb["REV"].cell(row,col)
+            if cell.data_type!="f":cell.value=None
+    # Remove any validation dropdown tied to the old F9 case selector.
+    for dv in list(assumptions.data_validations.dataValidation):
+        if "F9" in str(dv.sqref):
+            assumptions.data_validations.dataValidation.remove(dv)
     # Clean starting transaction assumptions; do not inherit another sponsor's terms.
     for address,value in {
         "F18":7.0,"F20":7.0,"F23":3.0,"F25":0.05,"F26":0.055,
@@ -279,19 +337,8 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                   "rent":[("EXP",61)],"sales":[("EXP",62)],
                   "maintenance":[("EXP",63)],"production":[("EXP",64)],
                   "other_opex":[("EXP",65)]}
-            if not p or p.get("revenue") is None:
-                # Extension one year beyond CIM forecast, labeled as analyst extrapolation.
-                if col=="M" and by_year.get(yr-1,{}).get("revenue") is not None:
-                    wb["ASSUMPTIONS"]["M57"]="=L57"
-                    wb["REV"]["M14"]="=L14*(1+ASSUMPTIONS!M57)"
-                    for erow in list(range(53,57))+list(range(58,67)):
-                        cell=wb["EXP"][f"M{erow}"]
-                        if cell.data_type!="f":
-                            cell.value=f"=IFERROR(L{erow}/REV!L14*REV!M14,0)"
-                    wb["ASSUMPTIONS"]["M76"]="=L76"
-                    issues.append(f"FY{yr}: analyst extension beyond CIM, validate the assumption before reliance")
-                else:
-                    issues.append(f"FY{yr}: no CIM forecast revenue, manual forecast required")
+            # All five forecast years were explicitly verified present above.
+            # Do not extrapolate a missing fifth year or use legacy assumptions.
             for field,targets in maps.items():
                 for sheet,row in targets:
                     if p and p.get(field) is not None:
@@ -322,19 +369,31 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
             if (p and p.get("revenue") is not None and
                 p.get("total_cogs") is None and all(p.get(x) is None for x in ["materials","labor","other_cogs"])):
                 issues.append(f"FY{yr}: projection needs COGS reconciliation")
-            # Investor base and downside are distinguished from CIM management plan.
-            wb["ASSUMPTIONS"][f"{col}63"]=f"={col}57-0.02"
-            wb["ASSUMPTIONS"][f"{col}64"]=f"=MAX(0,{col}58-0.02)"
-            wb["ASSUMPTIONS"][f"{col}65"]=f"={col}59+0.01"
-            wb["ASSUMPTIONS"][f"{col}69"]=f"={col}57-0.08"
-            wb["ASSUMPTIONS"][f"{col}70"]=f"=MAX(0,{col}58-0.06)"
-            wb["ASSUMPTIONS"][f"{col}71"]=f"={col}59+0.03"
+    # Clear unnecessary preferred/rollover returns divisions for an all-sponsor
+    # capital structure; do not mask non-zero sponsor denominator errors.
+    wb["CAP"]["F10"]=1
+    for row in (48,49):
+        wb["CAP"][f"I{row}"]=f'=IFERROR(H{row}/E{row},"n/a")'
+    wb["R"]["E30"]='=IFERROR(E29/E26,"n/a")'
+    wb["R"]["E31"]='=IFERROR(E30^(1/ASSUMPTIONS!$F$14)-1,"n/a")'
+    wb["R"]["E21"]='=IF(E18>0,E20/E18,NA())'
+    wb["R"]["E22"]='=IF(E21>0,E21^(1/ASSUMPTIONS!$F$14)-1,NA())'
+    wb["R"]["B10"]=f"FY{base_year+HOLD_YEARS}P Adjusted EBITDA"
+    # Testable checks on the existing returns page, outside its visible report.
+    wb["R"]["B101"]="AUDIT: source forecast and projected equity valuation"
+    wb["R"]["C101"]="=SUMPRODUCT(ABS(IS!I35:M35))"
+    wb["R"]["B102"]="AUDIT: exit equity less sponsor and rollover proceeds"
+    wb["R"]["C102"]="=R!E15-CAP!H51"
+    wb["R"]["B103"]="AUDIT: equity waterfall balance"
+    wb["R"]["C103"]="=CAP!H52"
+    wb["R"]["B104"]="AUDIT: 5-year sponsor return reconciliation"
+    wb["R"]["C104"]="=R!E22-(R!E21^(1/ASSUMPTIONS!F14)-1)"
     # Reset legacy sponsor-specific transaction assumptions so old seller values do not survive.
     for address in ("F37","F38"):
         _put(wb,"ASSUMPTIONS",address,0,None,"New deal rollover unconfirmed; set manually")
     issues.extend([
         "Entry/exit valuation, leverage, debt pricing, tax structure and rollover are analyst assumptions, not verified CIM facts.",
-        "The preferred equity, MIP and waterfall terms must be reviewed and updated for this acquisition.",
+        "No preferred PIK or MIP is assumed without deal-specific terms; verify the sponsor, seller and management waterfall.",
         "COMPS tab has intentionally cleared stale comparables; add independent market data.",
         "Forecast and historical numbers remain unverified until audited against source CIM.",
         "Open the generated file in Excel and recalculate before using sponsor returns."
