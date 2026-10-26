@@ -15,6 +15,7 @@ from deallens.full_model import (
     EXACT_MOIC_FOR_TARGET_IRR,
 )
 from deallens.ic_brief import export_two_page_ic
+from deallens.template_storage import get_saved_template
 
 st.set_page_config(
     page_title="DealLens | Private Markets Intelligence",
@@ -124,7 +125,7 @@ if not st.session_state.company:
             "Upload a searchable CIM using the left panel. DealLens extracts business facts and "
             "management forecasts, then prepares source-linked inputs for your 14-tab Excel model."
         )
-        st.caption("The original LBO Excel template remains yours to upload. Its figures are never bundled in the public code.")
+        st.caption("Your approved LBO template can be saved once in private app settings and reused for every new deal. No template files are included in the public repository.")
 
     st.subheader("A focused investment workflow")
     a, b, c = st.columns(3, gap="medium")
@@ -186,11 +187,33 @@ with model_tab:
             "Populate your original 14-tab Excel workbook with CIM historicals "
             "and management's five-year forecasts. The three-case toggle is removed."
         )
-        original = st.file_uploader(
-            "Excel model template (.xlsx)",
-            type=["xlsx"],
-            key="integrated_template",
-        )
+        # The reusable model lives in the app's private Streamlit Secrets,
+        # not in its public GitHub repository or ephemeral session storage.
+        try:
+            saved_template = get_saved_template(st.secrets)
+        except ValueError as exc:
+            saved_template = None
+            st.error(f"Saved template configuration problem: {exc}")
+        if saved_template:
+            st.success("Your saved 14-tab LBO template is ready. No template upload required.")
+            with st.expander("Use a different template for this analysis"):
+                original = st.file_uploader(
+                    "Temporary Excel template override (.xlsx)",
+                    type=["xlsx"],
+                    key="integrated_template",
+                )
+        else:
+            st.info(
+                "One-time setup required: add your private template to Streamlit "
+                "App Settings → Secrets under LBO_TEMPLATE_GZIP_BASE64. "
+                "Until then, you may upload it temporarily here."
+            )
+            original = st.file_uploader(
+                "Temporary LBO template (.xlsx)",
+                type=["xlsx"],
+                key="integrated_template",
+            )
+        original_bytes = original.getvalue() if original is not None else saved_template
         periods = st.session_state.financials["periods"]
         future = sorted({p["year"] for p in periods if p["kind"] in ("estimate", "projection")})
         actual = sorted({p["year"] for p in periods if p["kind"] == "actual"})
@@ -202,12 +225,12 @@ with model_tab:
             value=int(initial),
             help="The next five fiscal years must be CIM-supported management projections.",
         )
-        if original and periods:
+        if original_bytes and periods:
             if st.button("Generate integrated LBO", type="primary", icon=":material/table_chart:"):
                 with st.spinner("Mapping source financials into the Excel schedules..."):
                     try:
                         data, issues = make_integrated_model(
-                            original.getvalue(),
+                            original_bytes,
                             st.session_state.company,
                             st.session_state.financials,
                             base_year=int(base),
@@ -223,7 +246,7 @@ with model_tab:
         elif not periods:
             st.info("Detailed annual financial data is required. Analyze a searchable CIM to enable model generation.")
         else:
-            st.caption("Upload the Excel template to enable model generation.")
+            st.caption("Configure the saved model template in Streamlit Secrets or upload a temporary model.")
     with right:
         with st.container(border=True):
             st.caption("MODEL STANDARD")
