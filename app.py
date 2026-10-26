@@ -15,6 +15,7 @@ from deallens.full_model import (
     EXACT_MOIC_FOR_TARGET_IRR,
 )
 from deallens.ic_brief import export_two_page_ic
+from deallens.ai_provider import PROVIDERS, DEFAULT_MODELS, ENVIRONMENT_KEYS
 from deallens.template_storage import get_saved_template, validate_integrated_template, decode_private_config
 
 st.set_page_config(
@@ -61,25 +62,42 @@ with st.sidebar:
         help="Searchable PDF, maximum 25 MB. Use public, fictional, or expressly authorized documents only.",
     )
 
+    provider = st.selectbox(
+        "AI provider",
+        options=PROVIDERS,
+        index=0,
+        help="Only the selected provider receives CIM text for this analysis.",
+    )
+    with st.expander("Model settings"):
+        model_id = st.text_input(
+            "Model ID",
+            value=DEFAULT_MODELS[provider],
+            key=f"model_id_{provider}",
+            help="Change only if your account supports a different model. Provider pricing varies.",
+        )
+    environment_key_name = ENVIRONMENT_KEYS[provider]
     try:
-        secret = st.secrets.get("OPENAI_API_KEY", "")
+        secret = st.secrets.get(environment_key_name, "")
     except Exception:
         secret = ""
     key = st.text_input(
-        "OpenAI API key",
+        f"{provider} API key",
         type="password",
-        value=os.environ.get("OPENAI_API_KEY", "") or secret,
-        help="Your key is used for CIM extraction. Never commit it to GitHub.",
+        value=os.environ.get(environment_key_name, "") or secret,
+        key=f"api_key_{provider}",
+        help="Use a key from the selected API provider, not a Claude/ChatGPT consumer subscription. "
+             "The key does not sandbox the uploaded documents.",
     )
+    st.caption("CIM text is sent only to the selected API vendor. API keys do not provide a confidential sandbox.")
     if st.button("Analyze CIM", type="primary", use_container_width=True, icon=":material/analytics:"):
         if not doc or not key:
-            st.error("Upload a searchable CIM and provide an OpenAI API key.")
+            st.error(f"Upload a searchable CIM and provide a {provider} API key.")
         else:
-            with st.spinner("Extracting the business profile and five-year management plan..."):
+            with st.spinner(f"Analyzing CIM with {provider} and extracting five-year financials..."):
                 try:
                     pages = extract_pdf_pages(doc.getvalue())
-                    narrative = analyze_cim(pages, key)
-                    data = extract_financials(pages, key)
+                    narrative = analyze_cim(pages, key, model=model_id, provider=provider)
+                    data = extract_financials(pages, key, model=model_id, provider=provider)
                     st.session_state.update(
                         company=narrative["company_name"],
                         memo=narrative["memo"],
