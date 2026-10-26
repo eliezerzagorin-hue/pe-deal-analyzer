@@ -20,6 +20,7 @@ def _template():
     wb["R"]["E21"]="=1+1"
     for col in "IJKLM":
         wb["IS"][f"{col}34"]=f"={col}57"
+    wb["IS"]["H34"]="=H57"
     b=BytesIO();wb.save(b);return b.getvalue()
 
 def _annual():
@@ -52,6 +53,9 @@ def test_populate_all_14_tabs_with_cim_sources():
     assert wb["IS"]["I28"].value=='=IF(ISNUMBER(I34),I34-SUM(I20,I24:I27),0)'
     assert wb["IS"]["I34"].value==2600
     assert wb["IS"]["M34"].value==2600
+    assert wb["IS"]["H34"].value==2600
+    assert wb["IS"]["H28"].value=="=H34-SUM(H20,H24:H27)"
+    assert wb["D&A"]["I10"].value==400
     assert "CIM PDF page 4" in wb["IS"]["I34"].comment.text
     assert wb["ASSUMPTIONS"]["I63"].value is None
     assert wb["ASSUMPTIONS"]["I69"].value is None
