@@ -2,7 +2,7 @@
 
 **CIM-to-IC memo and adjustable five-year LBO prototype for lower-middle-market private equity.**
 
-DealLens is an experimental Streamlit application which combines CIM extraction, a full uploaded 14-sheet LBO template and a concise two-page downloadable Word IC screening memorandum.
+DealLens is an experimental Streamlit application which combines CIM extraction, a full uploaded 14-sheet LBO template and a concise concise Word IC screening memorandum with complete sections.
 
 ## Run locally
 
@@ -25,7 +25,7 @@ Without an OpenAI API key, click **Explore fictional demo** to explore the inter
 4. Deploy. Hosting is free on Community Cloud's eligible tier, while API usage is billed separately.
 
 
-## Current 14-sheet integrated LBO and 2-page IC brief workflow
+## Current 14-sheet integrated LBO and IC brief workflow
 
 1. Upload a **searchable PDF CIM** and provide your own OpenAI API key.
 2. Select **Analyze CIM**. The app extracts the eight IC memo narratives and a separate structured annual financial dataset in USD millions; missing and inconsistent fields remain unverified.
@@ -37,11 +37,11 @@ Without an OpenAI API key, click **Explore fictional demo** to explore the inter
    The app reads this server-side secret automatically for all future deals, with no repeated Excel uploads. A temporary override uploader remains available for testing. Never commit the template, its encoded payload, or a `secrets.toml` to public GitHub. **Base64 and gzip are not encryption.** If Streamlit Cloud rejects the secret because of its size, use approved private object storage instead; do not put the source workbook in the public repository.
 4. Choose the **latest actual financial year** preceding five CIM management forecast years. Generate and download a `.xlsx` containing the **same 14 sheets** as the template: COVER, ASSUMPTIONS, SUMMARY, REV, EXP, D&A, NWC, DEBT, IS, BS, CF, R, COMPS, CAP. The model populates a **single CIM management forecast case**, directly from five management-projected fiscal years, with the company name on the cover and no operating-case selector. Input-cell comments and SUMMARY source audit record CIM source pages; old financial data and comparables are cleared.
 5. **Review all cells, complete unavailable inputs and transaction assumptions manually**, and open the workbook in Excel to recalculate. Keep the model's original integrated formulas, but confirm they make sense for the new business and capital structure. This app does not guarantee all financial details are extracted from a CIM.
-6. Reupload the **Excel-recalculated workbook** in Verification to read sponsor MOIC from `R!E21` and IRR from `R!E22`, confirm assumptions, and download the **two-page formatted Word IC memo**.
+6. Reupload the **Excel-recalculated workbook** in Verification to read sponsor MOIC from `R!E21` and IRR from `R!E22`, confirm assumptions, and download the **formatted Word IC memo**.
 
 **Five-year investment decision policy:** The model is locked to an exactly **5-year hold** from December 31 of the entry year to December 31 five years later. A 3.00x sponsor MOIC implies 24.57% annualized IRR. **25.00% IRR requires 3.05176x MOIC**, approximately 3.05x. A proceed recommendation is prohibited unless both verified sponsor returns meet these equivalent five-year hurdle rates with no unresolved core missing inputs, and they reconcile mathematically. Unverified or stale returns are put on hold. Reaching the thresholds does not equal investment approval.
 
-The Word memo uses two deliberately composed pages in black-and-white **Times New Roman**, with every visible text run at least **11 pt**. It has only investment-relevant section headings, a company name, return hurdle summary, factual body copy and a returns-gated recommendation.
+The Word memo uses a naturally paginated document in black-and-white **Times New Roman**, with every visible text run at least **11 pt** and a target of **2–5 complete sentences per substantive section** when sufficiently supported by the CIM; missing facts are disclosed rather than invented. It has only investment-relevant section headings, a company name, return hurdle summary, factual body copy and a returns-gated recommendation.
 
 This is a **prototype that maps the supplied style of workbook**, not a generic model-mapping system. It will reject a workbook with different tab names/order or structural formula locations. If the CIM lacks any of the five management forecast years, forecast revenue, cost support, or adjusted EBITDA, model generation stops and identifies the gaps. No third-party base/downside projections or unprovided sixth-year extrapolation is inserted. Missing historical working capital and transaction assumptions still need analyst review. Comparable-company values are **not** independently researched.
 
