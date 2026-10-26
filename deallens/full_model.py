@@ -139,16 +139,23 @@ def _cleanup(wb):
     for row in range(24,34):
         for col in (4,8,9,12):
             if ws.cell(row,col).data_type!="f":ws.cell(row,col).value=None
-    # No stale deals/ownership/competitors in text labels.
-    for sheet in wb:
-        for row in sheet.iter_rows():
-            for cell in row:
-                if not isinstance(cell.value,str) or cell.data_type=="f":
-                    continue
-                if "Kinzie" in cell.value: cell.value=cell.value.replace("Kinzie","Sponsor")
-                if "Fraser Steel" in cell.value:cell.value=cell.value.replace("Fraser Steel","Target")
-                if "Rod Fraser" in cell.value:cell.value=cell.value.replace("Rod Fraser","Seller")
-                if "PROJECT FERRITE" in cell.value:cell.value=cell.value.replace("PROJECT FERRITE","INVESTMENT PROJECT")
+    # Generalize preexisting deal names in labels without hardcoding any seller name.
+    replacements={
+        "ASSUMPTIONS":{"B37":"Rollover Equity - Seller ($000s)",
+                       "B40":"Sponsor Equity ($000s)",
+                       "B62":"CASE 2 - INVESTOR BASE CASE"},
+        "REV":{"C19":"2 = Investor Base"},
+        "SUMMARY":{"B10":"Seller Rollover","B12":"Sponsor Equity"},
+        "R":{"B17":"Sponsor Returns","B25":"Seller and Management Rollover Returns",
+             "B27":"of which: Seller","B56":"Sponsor Position by Year"},
+        "CAP":{"B17":"Sponsor","B18":"Seller Rollover","B47":"Sponsor",
+               "B48":"Seller Rollover"},
+        "COMPS":{"B17":"Target at entry multiple"},
+    }
+    for sh, labels in replacements.items():
+        for address,new_label in labels.items():
+            if wb[sh][address].data_type!="f":wb[sh][address]=new_label
+
 
 def make_integrated_model(template_bytes, company, annual, base_year=None):
     if not template_bytes or len(template_bytes)>15*1024*1024:
