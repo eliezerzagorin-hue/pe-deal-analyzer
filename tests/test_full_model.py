@@ -22,7 +22,7 @@ def _template():
 
 def _annual():
     periods=[]
-    for year in range(2022,2030):
+    for year in range(2022,2031):
         periods.append(dict(year=year,kind="actual" if year<=2025 else "projection",
              revenue=10+(year-2022),materials=2,labor=1,other_cogs=1,
              total_cogs=4,executive=.5,administration=.3,rent=.2,sales=.1,
@@ -39,7 +39,20 @@ def test_populate_all_14_tabs_with_cim_sources():
     assert wb["REV"]["E9"].value==10000
     assert wb["REV"]["I14"].value==14000
     assert "CIM PDF page 4" in wb["REV"]["I14"].comment.text
-    assert wb["REV"]["M14"].data_type=="f"
+    assert wb["REV"]["M14"].value==18000
+    assert wb["ASSUMPTIONS"]["F9"].value is None
+    assert wb["ASSUMPTIONS"]["F7"].value=="MANAGEMENT CASE"
+    assert wb["ASSUMPTIONS"]["I79"].value=="=I57"
+    assert wb["ASSUMPTIONS"]["I80"].value=="=I58"
+    assert wb["ASSUMPTIONS"]["I81"].value=="=I59"
+    assert wb["ASSUMPTIONS"]["I82"].value=="=I60"
+    assert wb["ASSUMPTIONS"]["I88"].value=="=EXP!I60"
+    assert wb["IS"]["I28"].value=="=I57-SUM(I20,I24:I27)"
+    assert wb["ASSUMPTIONS"]["I63"].value is None
+    assert wb["ASSUMPTIONS"]["I69"].value is None
+    assert wb["ASSUMPTIONS"].row_dimensions[63].hidden
+    assert wb["R"]["E30"].value.startswith("=IFERROR(")
+    assert wb["R"]["E21"].value=="=IF(E18>0,E20/E18,NA())"
     assert wb["COMPS"]["B10"].value is None
     assert wb["COMPS"]["F10"].value is None
     assert wb["R"]["E21"].data_type=="f"
@@ -48,6 +61,20 @@ def test_populate_all_14_tabs_with_cim_sources():
     assert issues
     assert wb["ASSUMPTIONS"]["F12"].value == "=DATE(2025,12,31)"
     assert wb["ASSUMPTIONS"]["F13"].value == "=DATE(2030,12,31)"
+
+def test_reject_incomplete_management_outlook_instead_of_inventing_fifth_year():
+    d=_annual()
+    d["periods"]=[p for p in d["periods"] if p["year"] != 2030]
+    with pytest.raises(ValueError,match="FY2030 management projection missing"):
+        make_integrated_model(_template(),"Fictional Manufacturing",d,base_year=2025)
+
+def test_reject_missing_management_costs():
+    d=_annual()
+    p=next(row for row in d["periods"] if row["year"]==2027)
+    for key in ("materials","labor","other_cogs","total_cogs","gross_margin"):
+        p[key]=None
+    with pytest.raises(ValueError,match="FY2027 detailed COGS"):
+        make_integrated_model(_template(),"Fictional Manufacturing",d,base_year=2025)
 
 def test_strict_return_gate():
     assert HOLD_YEARS == 5
