@@ -86,7 +86,7 @@ def export_two_page_ic(company,memo,moic=None,irr=None,verified=False,issues=Non
     for i,head in enumerate(["Sponsor MOIC","Sponsor IRR","Minimum hurdles"]):_cell(t.cell(0,i),head,True)
     for i,value in enumerate([f"{moic:.2f}x" if moic is not None else "Pending model validation",
                               f"{irr:.1%}" if irr is not None else "Pending model validation",
-                              "3.0x MOIC AND 25% IRR"]):_cell(t.cell(1,i),value)
+                              "5-YR: 25% IRR / ~3.05x"]):_cell(t.cell(1,i),value)
     _title(doc,"1. Company / Business Overview")
     _row(doc,"Management & Employees",memo.get("management_employees",""))
     _row(doc,"Products & Services",memo.get("products_services",""))
@@ -118,6 +118,6 @@ def export_two_page_ic(company,memo,moic=None,irr=None,verified=False,issues=Non
         _body(doc,"Source claims, projections, adjusted EBITDA bridge, customer concentration, capital expenditures, financing terms and exit multiple still require independent diligence.",330)
     p=doc.add_paragraph()
     p.paragraph_format.space_before=Pt(10)
-    r=p.add_run("Decision policy: Proceed only when a verified, credible underwriting case demonstrates both >=3.0x sponsor MOIC and >=25% sponsor IRR. Otherwise hold or decline.")
+    r=p.add_run("Decision policy: Five-year hold. Proceed only with verified >=25% sponsor IRR (equivalent to >=3.05x MOIC). Exactly 3.00x over five years is 24.6% IRR.")
     r.font.size=Pt(8);r.bold=True;r.font.color.rgb=TEAL
     b=BytesIO();doc.save(b);return b.getvalue()
