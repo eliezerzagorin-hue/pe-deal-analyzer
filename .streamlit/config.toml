@@ -1,0 +1,26 @@
+# DealLens institutional research UI
+# Streamlit native theme to avoid brittle CSS and preserve responsive layout.
+[theme]
+base = "light"
+primaryColor = "#087F76"
+backgroundColor = "#F6F8FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#17283C"
+borderColor = "#DCE4ED"
+baseRadius = "md"
+font = "sans serif"
+headingFont = "sans serif"
+showSidebarBorder = true
+
+[theme.sidebar]
+backgroundColor = "#14273D"
+secondaryBackgroundColor = "#233A52"
+textColor = "#F2F6FA"
+primaryColor = "#41C3B5"
+borderColor = "#36516B"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+showErrorDetails = false
