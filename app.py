@@ -205,7 +205,7 @@ with model_tab:
         else:
             st.info(
                 "One-time setup required: add your private template to Streamlit "
-                "App Settings → Secrets under LBO_TEMPLATE_GZIP_BASE64. "
+                "App Settings → Secrets under [lbo_template] / gzip_base64. "
                 "Until then, you may upload it temporarily here."
             )
             original = st.file_uploader(
