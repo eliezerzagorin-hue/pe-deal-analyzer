@@ -9,6 +9,7 @@ import gzip
 import io
 import os
 import zipfile
+import tomllib
 
 MAX_COMPRESSED_BYTES = 8_000_000
 MAX_WORKBOOK_BYTES = 15_000_000
@@ -104,3 +105,16 @@ def get_saved_template(secrets=None):
     if not data:
         return None
     return decode_template(data)
+
+def decode_private_config(config_bytes):
+    """Import the user's existing private .toml configuration, in-session only."""
+    if not isinstance(config_bytes, bytes) or len(config_bytes)>MAX_COMPRESSED_BYTES*2:
+        raise ValueError("Private template configuration is empty or too large.")
+    try:
+        config=tomllib.loads(config_bytes.decode("utf-8-sig"))
+        encoded=config.get("lbo_template",{}).get("gzip_base64")
+    except (UnicodeError, ValueError, AttributeError) as exc:
+        raise ValueError("Invalid .toml file. Expected [lbo_template] and gzip_base64.") from exc
+    if not encoded:
+        raise ValueError("Missing [lbo_template] / gzip_base64 in the .toml file.")
+    return decode_template(encoded)
