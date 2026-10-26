@@ -110,12 +110,12 @@ def export_two_page_ic(company,memo,moic=None,irr=None,verified=False,issues=Non
     _body(doc,memo.get("potential_exit_strategies_buyer_universe",""),510)
     _title(doc,"8. Recommendation")
     _body(doc(status+". "+rationale,350))
-    _body(doc,memo.get("recommendation",""),320)
+    _body(doc,"Memo narrative is not an authorization to transact. Only the independently verified sponsor-return gate above controls the recommendation.",200)
     _title(doc,"Open Diligence & Return Verification")
     if issues:
         _body(doc,"; ".join(issues[:4]),390)
     else:
-        _body(doc("Source claims, projections, adjusted EBITDA bridge, customer concentration, capital expenditures, financing terms and exit multiple still require independent diligence.",330)
+        _body(doc,"Source claims, projections, adjusted EBITDA bridge, customer concentration, capital expenditures, financing terms and exit multiple still require independent diligence.",330)
     p=doc.add_paragraph()
     p.paragraph_format.space_before=Pt(10)
     r=p.add_run("Decision policy: Proceed only when a verified, credible underwriting case demonstrates both >=3.0x sponsor MOIC and >=25% sponsor IRR. Otherwise hold or decline.")
