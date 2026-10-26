@@ -58,8 +58,8 @@ def test_word_memo_has_all_sections_and_explicit_page_break():
     data=export_two_page_ic("Demo Company",demo_memo(),moic=2.9,irr=.24,verified=True,issues=[])
     doc=__import__("docx").Document(BytesIO(data))
     all_text=" ".join(p.text for p in doc.paragraphs)
-    assert "Company / Business Overview" in all_text
-    assert "Recommendation" in all_text
+    assert "COMPANY / BUSINESS OVERVIEW" in all_text
+    assert "RECOMMENDATION" in all_text
     assert "DO NOT PROCEED" in all_text
     import zipfile
     with zipfile.ZipFile(BytesIO(data)) as z:
