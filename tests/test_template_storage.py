@@ -33,14 +33,16 @@ def test_saved_template_decodes_only_when_configured(monkeypatch):
 def test_environment_template_configuration(monkeypatch):
     encoded = example_encoded_template()
     monkeypatch.setenv(KEY, encoded)
-    assert get_saved_template({"lbo_template": {"gzip_base64": "incorrect"}}).startswith(b"PK")
+    assert get_saved_template({}).startswith(b"PK")
+    with pytest.raises(ValueError, match="not decoded"):
+        get_saved_template({"lbo_template": {"gzip_base64": "incorrect"}})
 
 
 def test_reject_invalid_or_truncated_template():
     with pytest.raises(ValueError):
         decode_template("garbage")
     bad = base64.b64encode(gzip.compress(b"not an XLSX")).decode()
-    with pytest.raises(ValueError, match="Excel"):
+    with pytest.raises(ValueError, match="xlsx"):
         decode_template(bad)
 
 def test_reject_other_excel_workbook_instead_of_claiming_template_recognized():
