@@ -186,6 +186,8 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         year=p["year"]
         if year not in by_year or sum(v is not None for k,v in p.items() if k in FIELDS)>sum(v is not None for k,v in by_year[year].items() if k in FIELDS):
             by_year[year]=p
+    if by_year.get(base_year,{}).get("adjusted_ebitda") is None:
+        raise ValueError(f"Missing FY{base_year} historical adjusted EBITDA. Cannot calculate a reliable entry valuation.")
     # A five-year hold requires a complete five-year CIM management outlook.
     # Never invent an extra year or let a former investment's forecast carry over.
     forecast_issues=[]
@@ -333,6 +335,13 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                     if p.get(field) is not None:
                         _put(wb,sheet,f"G{row}",p[field]*1000,p["source_page"],f"FY{yr} {field}")
             if idx==8:
+                # Anchor entry leverage and purchase-price EBITDA to the CIM.
+                wb["IS"]["H34"]=None
+                _put(wb,"IS","H34",p["adjusted_ebitda"]*1000,p["source_page"],
+                     f"FY{base_year} historical adjusted EBITDA at entry; bridge in H28")
+                wb["IS"]["H28"]="=H34-SUM(H20,H24:H27)"
+                wb["IS"]["H35"]="=H31-H34"
+                provenance.append(f"IS!H34: FY{base_year} entry EBITDA [CIM p.{p['source_page']}]")
                 # The H PP&E roll-forward is BASE FY. Starting PP&E must be
                 # prior-year ending PP&E, not base-year ending PP&E.
                 prior=by_year.get(base_year-1,{})
