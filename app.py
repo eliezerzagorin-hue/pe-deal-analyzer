@@ -15,7 +15,7 @@ from deallens.full_model import (
     EXACT_MOIC_FOR_TARGET_IRR,
 )
 from deallens.ic_brief import export_two_page_ic
-from deallens.template_storage import get_saved_template, validate_integrated_template
+from deallens.template_storage import get_saved_template, validate_integrated_template, decode_private_config
 
 st.set_page_config(
     page_title="DealLens | Private Markets Intelligence",
@@ -103,14 +103,16 @@ with st.sidebar:
     else:
         st.caption("Persistent model template not connected.")
         temporary = st.file_uploader(
-            "Upload your original 14-tab Excel model",
-            type=["xlsx"],
+            "Import original LBO (.xlsx) or its private configuration (.toml)",
+            type=["xlsx", "toml"],
             key="session_lbo_upload",
             help="Recognized workbook remains available during this browser session.",
         )
         if temporary is not None:
             try:
-                candidate = temporary.getvalue()
+                candidate = (decode_private_config(temporary.getvalue())
+                             if temporary.name.lower().endswith(".toml")
+                             else temporary.getvalue())
                 validate_integrated_template(candidate)
                 st.session_state["session_lbo_template"] = candidate
                 active_template = candidate
