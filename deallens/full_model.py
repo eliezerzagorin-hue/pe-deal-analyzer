@@ -8,6 +8,11 @@ import json
 import math
 import re
 
+HOLD_YEARS = 5
+TARGET_IRR = 0.25
+APPROX_MOIC_TARGET = 3.0
+EXACT_MOIC_FOR_TARGET_IRR = (1 + TARGET_IRR) ** HOLD_YEARS
+
 from openpyxl import load_workbook
 from openpyxl.comments import Comment
 from openpyxl.workbook.properties import CalcProperties
@@ -191,7 +196,7 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         yr=base_year-3+idx-5
         wb["ASSUMPTIONS"].cell(55,idx).value=f"=DATE({yr},12,31)"
     wb["ASSUMPTIONS"]["F12"]=f"=DATE({base_year},12,31)"
-    wb["ASSUMPTIONS"]["F13"]=f"=DATE({base_year+5},12,31)"
+    wb["ASSUMPTIONS"]["F13"]=f"=DATE({base_year+HOLD_YEARS},12,31)"
     wb["ASSUMPTIONS"]["F9"]=2
     # Clean starting transaction assumptions; do not inherit another sponsor's terms.
     for address,value in {
@@ -344,18 +349,49 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     return out.getvalue(),issues
 
 def read_recalculated_returns(workbook_bytes,company):
+    """Validate five-year sponsor returns only after Excel has calculated its formulas."""
     wb=load_workbook(BytesIO(workbook_bytes),data_only=True,read_only=True)
-    if wb.sheetnames!=REQUIRED: raise ValueError("Not the expected integrated 14-tab workbook.")
+    if wb.sheetnames!=REQUIRED:
+        raise ValueError("Not the expected integrated 14-tab workbook.")
     title=str(wb["COVER"]["D14"].value or "")
-    if title.strip()!=str(company).strip(): raise ValueError("Workbook company name does not match analyzed CIM.")
+    if title.strip()!=str(company).strip():
+        raise ValueError("Workbook company name does not match analyzed CIM.")
+    hold=wb["ASSUMPTIONS"]["F14"].value
+    if not isinstance(hold,(float,int)) or isinstance(hold,bool):
+        raise ValueError("The hold-period formula is not calculated. Recalculate and save in Excel.")
+    if not math.isclose(float(hold),HOLD_YEARS,abs_tol=1e-8):
+        raise ValueError(f"DealLens requires a {HOLD_YEARS}-year hold, but this model uses {hold:g} years.")
     moic=wb["R"]["E21"].value; irr=wb["R"]["E22"].value
-    if not isinstance(moic,(float,int)) or not isinstance(irr,(float,int)):
+    if (not isinstance(moic,(float,int)) or isinstance(moic,bool) or
+        not isinstance(irr,(float,int)) or isinstance(irr,bool)):
         raise ValueError("Returns are not calculated yet. Open model in Excel, recalculate, save and reupload.")
-    return float(moic),float(irr)
+    moic,irr=float(moic),float(irr)
+    if not math.isfinite(moic) or not math.isfinite(irr) or moic<=0:
+        raise ValueError("Invalid sponsor returns; review the integrated model.")
+    implied_irr=moic**(1/HOLD_YEARS)-1
+    if not math.isclose(irr,implied_irr,abs_tol=0.0005):
+        raise ValueError("Sponsor IRR and MOIC do not reconcile for a five-year hold. Recalculate the model and check for stale formulas.")
+    return moic,irr
 
 def recommendation(moic=None,irr=None,verified=False,issues=None):
+    """Require a credible five-year, >=25% IRR path, approximately >=3.05x MOIC."""
     if not verified or moic is None or irr is None or issues:
-        return "HOLD / FURTHER DILIGENCE", "CIM inputs and calculated sponsor returns need verification."
-    if moic>=3.0 and irr>=0.25:
-        return "CONDITIONAL PROCEED", "Both the 3.0x sponsor MOIC and 25% IRR gates are met; diligence and committee approval still required."
-    return "DO NOT PROCEED", "The verified underwriting fails at least one of the required return thresholds."
+        return "HOLD / FURTHER DILIGENCE", "CIM inputs and five-year sponsor returns need verification."
+    try:
+        moic,irr=float(moic),float(irr)
+    except (TypeError,ValueError):
+        return "HOLD / FURTHER DILIGENCE", "Sponsor return outputs must be numeric and verified."
+    if not math.isfinite(moic) or not math.isfinite(irr) or moic<=0:
+        return "HOLD / FURTHER DILIGENCE", "Sponsor return outputs are invalid."
+    if moic<EXACT_MOIC_FOR_TARGET_IRR or irr<TARGET_IRR:
+        return "DO NOT PROCEED", (
+            "The five-year underwriting does not clear a 25% annualized IRR "
+            f"(equivalent to {EXACT_MOIC_FOR_TARGET_IRR:.2f}x MOIC)."
+        )
+    if not math.isclose(irr,moic**(1/HOLD_YEARS)-1,abs_tol=0.0005):
+        return "HOLD / FURTHER DILIGENCE", "Sponsor MOIC and IRR do not reconcile to a five-year hold."
+    return "CONDITIONAL PROCEED", (
+        "The verified five-year case meets both the 25% IRR target and its "
+        f"approximately {EXACT_MOIC_FOR_TARGET_IRR:.2f}x MOIC equivalent; "
+        "diligence and IC approval are still required."
+    )
