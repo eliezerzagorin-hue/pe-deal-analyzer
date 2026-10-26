@@ -35,14 +35,14 @@ with st.sidebar:
                     narrative=analyze_cim(pages,key)
                     data=extract_financials(pages,key)
                     st.session_state.update(company=narrative["company_name"],memo=narrative["memo"],
-                        financials=data,issues=[],model_bytes=None,returns=None,reviewed=False)
+                        financials=data,issues=[],model_bytes=None,returns=None,reviewed=False,resolved_missing=False)
                     st.rerun()
                 except Exception as exc: st.error(f"Could not analyze the CIM: {exc}")
     st.divider()
     if st.button("Load fictional narrative demo",use_container_width=True):
         st.session_state.update(company=DEMO_COMPANY,memo=demo_memo(),
             financials={"periods":[],"warnings":["Illustrative narrative only. A CIM with annual financial statements is required for a complete 14-tab underwriting model."]},
-            issues=[],model_bytes=None,returns=None,reviewed=False)
+            issues=[],model_bytes=None,returns=None,reviewed=False,resolved_missing=False)
         st.rerun()
 
 if not st.session_state.company:
@@ -76,6 +76,7 @@ with model_tab:
             st.session_state.issues=issues
             st.session_state.returns=None
             st.session_state.reviewed=False
+            st.session_state.resolved_missing=False
             st.success("Generated all 14 worksheets using the uploaded workbook's structure.")
         except Exception as exc:
             st.error(f"Unable to build model: {exc}")
