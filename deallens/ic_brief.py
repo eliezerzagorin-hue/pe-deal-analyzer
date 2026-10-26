@@ -113,7 +113,7 @@ def export_two_page_ic(company,memo,moic=None,irr=None,verified=False,issues=Non
     _body(doc,memo.get("recommendation",""),320)
     _title(doc,"Open Diligence & Return Verification")
     if issues:
-        _body(doc("; ".join(issues[:4]),390)
+        _body(doc,"; ".join(issues[:4]),390)
     else:
         _body(doc("Source claims, projections, adjusted EBITDA bridge, customer concentration, capital expenditures, financing terms and exit multiple still require independent diligence.",330)
     p=doc.add_paragraph()
