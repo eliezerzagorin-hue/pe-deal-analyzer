@@ -209,6 +209,18 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
         col=__import__("openpyxl").utils.get_column_letter(idx)
         yr=base_year-3+(idx-5)
         p=by_year.get(yr)
+        # Mirror seller-as-presented financial statements inside existing IS memo schedule.
+        if p and col!="M":
+            seller_is={"net_income":51,"depreciation":52,"interest":53,"income_tax":54}
+            for field,srow in seller_is.items():
+                if p.get(field) is not None:
+                    _put(wb,"IS",f"{col}{srow}",p[field]*1000,p["source_page"],
+                         f"FY{yr} seller-reported {field}, $000s")
+            if all(p.get(k) is not None for k in
+                   ("net_income","depreciation","interest","income_tax","adjusted_ebitda")):
+                unverified=p["adjusted_ebitda"]-sum(p[k] for k in seller_is)
+                _put(wb,"IS",f"{col}55",unverified*1000,p["source_page"],
+                     "Aggregate implied QofE adjustment, NOT a verified line item")
         if idx<=8:
             maps={"revenue":[("REV",9)],"materials":[("EXP",10)],
                 "labor":[("EXP",11)],"other_cogs":[("EXP",12)],
@@ -288,6 +300,17 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
             if p and p.get("total_cogs") is not None and all(p.get(f) is None for f in ["materials","labor","other_cogs"]):
                 _put(wb,"EXP",f"{col}53",p["total_cogs"]*1000,p["source_page"],"Aggregate management COGS")
                 wb["EXP"]["B53"]="Aggregate COGS (no breakdown)"
+            if p and p.get("total_cogs") is not None and any(
+                    p.get(f) is None for f in ("materials","labor","other_cogs")) and any(
+                    p.get(f) is not None for f in ("materials","labor","other_cogs")):
+                known=sum(p[f] for f in ("materials","labor","other_cogs") if p.get(f) is not None)
+                residual=p["total_cogs"]-known
+                target=next((r for f,r in [("other_cogs",55),("labor",54),("materials",53)] if p.get(f) is None),None)
+                if residual>=-0.0001 and target is not None:
+                    _put(wb,"EXP",f"{col}{target}",max(0,residual)*1000,p["source_page"],
+                         "Calculated residual to reconcile CIM total COGS; NOT separately disclosed")
+                else:
+                    issues.append(f"FY{yr}: COGS breakout exceeds disclosed COGS total")
             if p and p.get("total_opex") is not None and all(p.get(f) is None for f in ["executive","administration","rent","sales","maintenance","production","other_opex"]):
                 _put(wb,"EXP",f"{col}58",p["total_opex"]*1000,p["source_page"],"Aggregate management opex")
                 wb["EXP"]["B58"]="Aggregate Opex (no breakdown)"
