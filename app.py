@@ -5,7 +5,7 @@ import streamlit as st
 from deallens.demo import DEMO_COMPANY, DEMO_HISTORY, demo_memo
 from deallens.ingest import extract_pdf_pages
 from deallens.memo import analyze_cim, blank_memo
-from deallens.full_model import extract_financials, make_integrated_model, read_recalculated_returns, recommendation
+from deallens.full_model import extract_financials, make_integrated_model, read_recalculated_returns, recommendation, HOLD_YEARS, EXACT_MOIC_FOR_TARGET_IRR
 from deallens.ic_brief import export_two_page_ic
 
 st.set_page_config(page_title="DealLens | Buyout Underwriting", page_icon="📊", layout="wide")
@@ -50,16 +50,18 @@ if not st.session_state.company:
     st.stop()
 
 st.subheader(st.session_state.company)
-c1,c2,c3=st.columns(3)
+c1,c2,c3,c4=st.columns(4)
 c1.metric("Document","CIM analyzed")
 c2.metric("Financial periods",len(st.session_state.financials["periods"]))
-c3.metric("Target hurdles","≥3.0x / ≥25%")
+c3.metric("Hold period",f"{HOLD_YEARS} years")
+c4.metric("Return hurdle",f"≥{EXACT_MOIC_FOR_TARGET_IRR:.2f}x / ≥25%")
 st.caption("Historical sources are written into the Excel model as source-page comments and a SUMMARY source-audit log, not displayed as a separate screen.")
 model_tab,memo_tab,review_tab=st.tabs(["1 · Full 14-tab LBO","2 · Two-page IC memo","3 · Verification"])
 
 with model_tab:
     st.markdown("### Rebuild your integrated Excel template")
     st.write("Upload your **14-tab .xlsx template** each time. DealLens copies its layouts, formulas, debt schedule, three statements, case switches and capitalization waterfall while replacing mapped CIM financial inputs.")
+    st.caption("Five-year hold is fixed: the close date is the selected base year-end and exit date is exactly five calendar years later. 3.0x over five years is ~24.6% IRR; the 25% target requires ~3.05x.")
     original=st.file_uploader("Integrated 14-tab Excel LBO template (.xlsx)",type=["xlsx"],key="integrated_template")
     periods=st.session_state.financials["periods"]
     future=sorted({p["year"] for p in periods if p["kind"] in ("estimate","projection")})
@@ -116,7 +118,7 @@ with review_tab:
     state,explanation=recommendation(moic,irr,st.session_state.reviewed,effective_blockers)
     st.subheader("Decision: "+state)
     st.write(explanation)
-    st.caption("Strict gate: BOTH 3.0x sponsor MOIC and 25% sponsor IRR, using the verified sponsor returns in your recalculated template. No threshold override.")
+    st.caption(f"Strict five-year gate: ≥25% sponsor IRR, requiring ≈{EXACT_MOIC_FOR_TARGET_IRR:.2f}x MOIC. Returns must reconcile to the five-year hold. No threshold override.")
 
 with memo_tab:
     st.markdown("### Download the two-page IC memo")
