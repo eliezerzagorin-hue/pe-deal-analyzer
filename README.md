@@ -4,6 +4,21 @@
 
 DealLens is an experimental Streamlit application which combines CIM extraction, a full uploaded 14-sheet LBO template and a concise concise Word IC screening memorandum with complete sections.
 
+## AI providers: OpenAI, Claude and Gemini
+
+DealLens now offers a provider dropdown and model ID field in the CIM-upload sidebar.
+Each provider uses its own API key and billing account. A ChatGPT Plus or Claude Pro subscription does not provide API credits.
+
+| Provider | Default model | Streamlit Secrets key |
+| --- | --- | --- |
+| OpenAI | gpt-4.1-mini | OPENAI_API_KEY |
+| Anthropic Claude | claude-sonnet-5-5 | ANTHROPIC_API_KEY |
+| Google Gemini | gemini-3.8-flash | GEMINI_API_KEY |
+
+Enter the corresponding key in the password field or store it under the exact uppercase name in Streamlit app Settings → Secrets. Only the selected provider receives the CIM text. Both narrative memo and financial extraction use that provider. The 14-tab LBO mapping and 5-year sponsor hurdles do not change.
+
+An API key is not a sandbox or zero-data-retention agreement. API data is subject to the selected provider's processing, storage and retention terms. Claude and OpenAI commercial/API data are not used for training by default, with other standard data retention rules applying. Gemini Paid and Unpaid services have materially different data-use terms. Do not upload NDA-protected deal materials without authorization and an approved, access-controlled hosting and API arrangement. This publicly hosted Streamlit app is for demo use.
+
 ## Run locally
 
 ```bash
