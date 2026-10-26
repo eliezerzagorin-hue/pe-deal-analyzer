@@ -212,6 +212,24 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
     wb["COVER"]["D14"]=str(company)[:125]
     wb["COVER"]["D16"]="DealLens  |  Draft underwriting model  |  Source: uploaded CIM"
     issues=[]; provenance=[]
+    # Closing-year NWC is the financial forecasting anchor. The uploaded
+    # template originally uses column G, which shifts when close-year changes.
+    close_financials=by_year.get(base_year,{})
+    nwc_fields={"accounts_receivable":10,"inventory":11,"prepaids":12,
+                "accounts_payable":15,"accrued_expenses":16}
+    for field,row in nwc_fields.items():
+        source=close_financials.get(field)
+        if source is not None:
+            wb["NWC"][f"H{row}"]=None
+            _put(wb,"NWC",f"H{row}",source*1000,close_financials["source_page"],
+                 f"Closing FY{base_year} source balance; projected NWC anchored here.")
+            provenance.append(f"NWC!H{row}: FY{base_year} {field} [CIM p.{close_financials['source_page']}]")
+        else:
+            issues.append(f"Missing FY{base_year} balance sheet input: {field}. Closing NWC and cash-flow sweep need verification.")
+    for col in "IJKLM":
+        for row in nwc_fields.values():
+            wb["NWC"][f"{col}{row}"]=f"=IFERROR(REV!{col}9*(NWC!$H${row}/REV!$H$9),0)".replace("\\$","$")
+    wb["ASSUMPTIONS"]["F50"]="=NWC!$H$20"
     # Align year headings and transaction timing to the selected base year.
     for sheet in wb:
         if sheet.title in ("REV","EXP","D&A","NWC","DEBT","IS","BS","CF"):
@@ -314,8 +332,22 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                           ("ppe_net","BS",15)]:
                     if p.get(field) is not None:
                         _put(wb,sheet,f"G{row}",p[field]*1000,p["source_page"],f"FY{yr} {field}")
-            if idx==8 and p and p.get("ppe_net") is not None:
-                _put(wb,"D&A","H18",p["ppe_net"]*1000,p["source_page"],"Opening PP&E")
+            if idx==8:
+                # The H PP&E roll-forward is BASE FY. Starting PP&E must be
+                # prior-year ending PP&E, not base-year ending PP&E.
+                prior=by_year.get(base_year-1,{})
+                ppe=prior.get("ppe_net")
+                note="Prior fiscal year ending PP&E as rollforward opening balance"
+                sourcepage=prior.get("source_page")
+                if ppe is None and p and all(p.get(k) is not None
+                                              for k in ("ppe_net","capex","depreciation")):
+                    ppe=p["ppe_net"]-p["capex"]+p["depreciation"]
+                    note="Backsolved prior-year PP&E from closing PP&E less capex plus D&A; validate"
+                    sourcepage=p["source_page"]
+                if ppe is not None:
+                    _put(wb,"D&A","H18",ppe*1000,sourcepage,note)
+                else:
+                    issues.append("Missing source PP&E rollforward opening balance; verify balance sheet and depreciation.")
             if idx<=7 and p:
                 for field,erow in [("net_income",35),("depreciation",36),
                                    ("interest",37),("income_tax",38)]:
@@ -355,6 +387,15 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                     if p and p.get(field) is not None:
                         _put(wb,sheet,f"{col}{row}",p[field]*1000,p["source_page"],f"FY{yr} management projection")
                         provenance.append(f"{sheet}!{col}{row}: FY{yr} {field} [CIM p.{p['source_page']}]")
+            if p.get("capex") is not None:
+                # Override the template's constant CapEx formula only when
+                # the CIM has a year-specific management projection.
+                wb["D&A"][f"{col}10"]=None
+                _put(wb,"D&A",f"{col}10",p["capex"]*1000,p["source_page"],
+                     f"FY{yr} management-projected annual capex")
+                provenance.append(f"D&A!{col}10: FY{yr} CapEx [CIM p.{p['source_page']}]")
+            else:
+                issues.append(f"FY{yr} projected CapEx not disclosed; model uses latest annual run rate as analyst assumption.")
             if p and p.get("total_cogs") is None and p.get("gross_margin") is not None and p.get("revenue") is not None:
                 p=dict(p,total_cogs=p["revenue"]*(1-p["gross_margin"]))
             if p and p.get("total_opex") is None and p.get("cash_opex_ratio") is not None and p.get("revenue") is not None:
