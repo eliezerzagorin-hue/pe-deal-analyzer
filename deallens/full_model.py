@@ -340,6 +340,11 @@ def make_integrated_model(template_bytes, company, annual, base_year=None):
                   "other_opex":[("EXP",65)]}
             # The management EBITDA line is sourced directly, rather than
             # summing possibly absent CIM below-the-line items into a false zero.
+            # The original layout computes this memo line from as-presented
+            # financials. Replace ONLY this benchmark formula with the cited
+            # CIM EBITDA to prevent missing seller NI/tax rows from creating
+            # a false zero and corrupting sponsor returns.
+            wb["IS"][f"{col}34"]=None
             _put(wb,"IS",f"{col}34",p["adjusted_ebitda"]*1000,p["source_page"],
                  f"FY{yr} adjusted EBITDA as stated by CIM. Model bridge in IS!{col}28.")
             provenance.append(f"IS!{col}34: FY{yr} stated adjusted EBITDA [CIM p.{p['source_page']}]")
