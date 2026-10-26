@@ -34,3 +34,15 @@ def test_deployment_imports_all_lbo_entrypoints():
     assert callable(recommendation)
     assert HOLD_YEARS == 5
     assert EXACT_MOIC_FOR_TARGET_IRR > 3.0
+
+def test_provider_selector_changes_key_field_without_making_requests():
+    at=AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py",default_timeout=30).run()
+    provider=next(item for item in at.sidebar.selectbox if item.label=="AI provider")
+    assert tuple(provider.options)==("OpenAI","Claude","Gemini")
+    provider.set_value("Claude").run()
+    assert not at.exception
+    assert any(i.label=="Claude API key" for i in at.sidebar.text_input)
+    provider=next(item for item in at.sidebar.selectbox if item.label=="AI provider")
+    provider.set_value("Gemini").run()
+    assert not at.exception
+    assert any(i.label=="Gemini API key" for i in at.sidebar.text_input)
