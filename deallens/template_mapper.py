@@ -25,7 +25,7 @@ PROFILE = [
     ("amortization", "Mandatory annual amortization", "ASSUMPTIONS", "F31", "Mandatory Amortization", 0, 1),
     ("cash_sweep", "Cash-flow sweep", "ASSUMPTIONS", "F32", "Cash Flow Sweep", 0, 1),
     ("minimum_cash", "Minimum operating cash ($000s)", "ASSUMPTIONS", "F33", "Minimum Operating Cash", 0, 1e9),
-    ("owner_rollover", "Owner rollover ($000s)", "ASSUMPTIONS", "F37", "Rollover Equity - Rod Fraser", 0, 1e9),
+    ("owner_rollover", "Owner rollover ($000s)", "ASSUMPTIONS", "F37", "Rollover Equity - ", 0, 1e9),
     ("management_roll", "Management rollover (% of old stake)", "ASSUMPTIONS", "F38", "Rollover Equity - Management", 0, 1),
     ("financing_fee", "Financing fees (% of debt)", "ASSUMPTIONS", "F41", "Financing Fees", 0, 1),
     ("tax_rate", "Tax rate", "ASSUMPTIONS", "F45", "Pro Forma Tax Rate", 0, 1),
