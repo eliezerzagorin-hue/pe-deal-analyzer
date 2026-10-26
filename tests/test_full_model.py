@@ -47,7 +47,9 @@ def test_populate_all_14_tabs_with_cim_sources():
     assert wb["ASSUMPTIONS"]["I81"].value=="=I59"
     assert wb["ASSUMPTIONS"]["I82"].value=="=I60"
     assert wb["ASSUMPTIONS"]["I88"].value=="=EXP!I60"
-    assert wb["IS"]["I28"].value=="=I57-SUM(I20,I24:I27)"
+    assert wb["IS"]["I28"].value=='=IF(ISNUMBER(I34),I34-SUM(I20,I24:I27),0)'
+    assert wb["IS"]["I34"].value==2600
+    assert "CIM PDF page 4" in wb["IS"]["I34"].comment.text
     assert wb["ASSUMPTIONS"]["I63"].value is None
     assert wb["ASSUMPTIONS"]["I69"].value is None
     assert wb["ASSUMPTIONS"].row_dimensions[63].hidden
@@ -66,6 +68,13 @@ def test_reject_incomplete_management_outlook_instead_of_inventing_fifth_year():
     d=_annual()
     d["periods"]=[p for p in d["periods"] if p["year"] != 2030]
     with pytest.raises(ValueError,match="FY2030 management projection missing"):
+        make_integrated_model(_template(),"Fictional Manufacturing",d,base_year=2025)
+
+def test_reject_missing_management_ebitda_to_protect_returns():
+    d=_annual()
+    p=next(row for row in d["periods"] if row["year"]==2028)
+    p["adjusted_ebitda"]=None
+    with pytest.raises(ValueError,match="FY2028 management adjusted EBITDA missing"):
         make_integrated_model(_template(),"Fictional Manufacturing",d,base_year=2025)
 
 def test_reject_missing_management_costs():
