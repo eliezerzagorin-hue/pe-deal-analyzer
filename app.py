@@ -15,7 +15,7 @@ from deallens.full_model import (
     EXACT_MOIC_FOR_TARGET_IRR,
 )
 from deallens.ic_brief import export_two_page_ic
-from deallens.template_storage import get_saved_template
+from deallens.template_storage import get_saved_template, validate_integrated_template
 
 st.set_page_config(
     page_title="DealLens | Private Markets Intelligence",
@@ -37,6 +37,16 @@ defaults = {
 for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
+
+# Resolve saved template before processing the CIM.
+template_setup_error = None
+try:
+    saved_template = get_saved_template(st.secrets)
+except ValueError as exc:
+    saved_template = None
+    template_setup_error = str(exc)
+active_template = saved_template or st.session_state.get("session_lbo_template")
+template_persistent = bool(saved_template)
 
 with st.sidebar:
     st.title("◈ DealLens")
@@ -85,6 +95,40 @@ with st.sidebar:
                     st.error(f"CIM analysis failed: {exc}")
 
     st.divider()
+    st.subheader("LBO model template")
+    if template_setup_error:
+        st.error("Saved template configuration error: " + template_setup_error)
+    if template_persistent:
+        st.success("Original 14-tab Excel template connected permanently. No more uploads.")
+    else:
+        st.caption("Persistent model template not connected.")
+        temporary = st.file_uploader(
+            "Upload your original 14-tab Excel model",
+            type=["xlsx"],
+            key="session_lbo_upload",
+            help="Recognized workbook remains available during this browser session.",
+        )
+        if temporary is not None:
+            try:
+                candidate = temporary.getvalue()
+                validate_integrated_template(candidate)
+                st.session_state["session_lbo_template"] = candidate
+                active_template = candidate
+                st.success("Original 14-tab template recognized for this session.")
+            except ValueError as exc:
+                st.error("Template recognition failed: " + str(exc))
+        elif active_template:
+            st.success("Original 14-tab template ready for this session.")
+        with st.expander("How to connect the original workbook permanently"):
+            st.write(
+                "In Streamlit Community Cloud open DealLens → Settings → Secrets. "
+                "Paste the complete private .toml template configuration supplied earlier. "
+                "It needs a [lbo_template] section and a gzip_base64 value. "
+                "Save the settings and restart your app. "
+                "Never put a confidential workbook in public GitHub."
+            )
+
+    st.divider()
     st.caption("PREVIEW WORKSPACE")
     if st.button("Explore fictional demo", use_container_width=True, icon=":material/visibility:"):
         st.session_state.update(
@@ -125,7 +169,16 @@ if not st.session_state.company:
             "Upload a searchable CIM using the left panel. DealLens extracts business facts and "
             "management forecasts, then prepares source-linked inputs for your 14-tab Excel model."
         )
-        st.caption("Your approved LBO template can be saved once in private app settings and reused for every new deal. No template files are included in the public repository.")
+        if active_template:
+            st.success("Original 14-tab LBO template recognized" +
+                       (" and stored for future sessions." if template_persistent
+                        else " for this browser session."))
+        else:
+            st.warning(
+                "Your LBO template is not connected yet. Upload it in the sidebar "
+                "or finish the one-time private template setup."
+            )
+        st.caption("The deal workbook is never included in the public repository.")
 
     st.subheader("A focused investment workflow")
     a, b, c = st.columns(3, gap="medium")
@@ -187,33 +240,11 @@ with model_tab:
             "Populate your original 14-tab Excel workbook with CIM historicals "
             "and management's five-year forecasts. The three-case toggle is removed."
         )
-        # The reusable model lives in the app's private Streamlit Secrets,
-        # not in its public GitHub repository or ephemeral session storage.
-        try:
-            saved_template = get_saved_template(st.secrets)
-        except ValueError as exc:
-            saved_template = None
-            st.error(f"Saved template configuration problem: {exc}")
-        if saved_template:
-            st.success("Your saved 14-tab LBO template is ready. No template upload required.")
-            with st.expander("Use a different template for this analysis"):
-                original = st.file_uploader(
-                    "Temporary Excel template override (.xlsx)",
-                    type=["xlsx"],
-                    key="integrated_template",
-                )
+        original_bytes = active_template
+        if original_bytes:
+            st.success("Original 14-tab workbook recognized: ready for LBO generation.")
         else:
-            st.info(
-                "One-time setup required: add your private template to Streamlit "
-                "App Settings → Secrets under [lbo_template] / gzip_base64. "
-                "Until then, you may upload it temporarily here."
-            )
-            original = st.file_uploader(
-                "Temporary LBO template (.xlsx)",
-                type=["xlsx"],
-                key="integrated_template",
-            )
-        original_bytes = original.getvalue() if original is not None else saved_template
+            st.warning("The original Excel workbook is not loaded. Upload it from the sidebar or connect the saved template.")
         periods = st.session_state.financials["periods"]
         future = sorted({p["year"] for p in periods if p["kind"] in ("estimate", "projection")})
         actual = sorted({p["year"] for p in periods if p["kind"] == "actual"})
@@ -246,7 +277,7 @@ with model_tab:
         elif not periods:
             st.info("Detailed annual financial data is required. Analyze a searchable CIM to enable model generation.")
         else:
-            st.caption("Configure the saved model template in Streamlit Secrets or upload a temporary model.")
+            st.caption("Connect the original template before generating an LBO.")
     with right:
         with st.container(border=True):
             st.caption("MODEL STANDARD")
