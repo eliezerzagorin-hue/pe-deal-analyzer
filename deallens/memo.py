@@ -39,9 +39,20 @@ management_employees, products_services, general_operations, customer_base,
 historical_financial_performance, market_overview, growth_opportunities,
 investment_merits_risks_mitigants, investment_thesis,
 potential_exit_strategies_buyer_universe, recommendation.
-Each value must be an editable prose string, preferably detailed bullet points.
-For every material CIM-sourced claim provide citation [CIM p. N] pointing to the
-actual provided page. If a fact is absent, say "Not established in the uploaded
+Write substantive prose using complete sentences, not terse fragments or
+bullet points. For each of these memo fields write 2-5 well-developed sentences:
+historical_financial_performance, market_overview, growth_opportunities,
+investment_merits_risks_mitigants, investment_thesis,
+potential_exit_strategies_buyer_universe, recommendation.
+For the four business overview fields (management_employees, products_services,
+general_operations, customer_base) use 1 complete sentence EACH so the
+combined Business Overview is a concise four-sentence section.
+Aim for 3-4 sentences for each narrative section when there is enough
+specific, document-supported substance. Prefer facts, quantified trends,
+drivers, competition, risks, and executable diligence over generalities.
+For every material CIM-sourced claim include [CIM p. N] referencing the
+actual provided page. Cite adjacent factual statements without filling
+sections with repeated or decorative boilerplate. If a fact is absent, say "Not established in the uploaded
 CIM. Further diligence required." Do not fabricate personal names, customers,
 market size, competitors, comparable transactions, exit buyers or metrics.
 Keep thesis and recommendation explicitly PRELIMINARY and evidence-qualified.
