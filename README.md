@@ -2,7 +2,7 @@
 
 **CIM-to-IC memo and adjustable five-year LBO prototype for lower-middle-market private equity.**
 
-DealLens is an experimental Streamlit application. Its first version can read searchable PDFs, draft a source-cited IC memo with eight requested sections, extract proposed historical financial figures for analyst confirmation, run a five-year LBO, and export an editable Word memo and formula-linked Excel model.
+DealLens is an experimental Streamlit application which combines CIM extraction, a full uploaded 14-sheet LBO template and a concise two-page downloadable Word IC screening memorandum.
 
 ## Run locally
 
@@ -25,13 +25,20 @@ Without an OpenAI API key, click **Load fictional demo** to explore the model an
 4. Deploy. Hosting is free on Community Cloud's eligible tier, while API usage is billed separately.
 
 
-## Existing Excel template overlay
+## Current 14-sheet integrated LBO and 2-page IC brief workflow
 
-The **Excel template** tab accepts a user-provided `.xlsx` workbook compatible with a recognized integrated 14-tab LBO structure. It previews a small allowlisted set of transaction and financing assumptions, and lets an analyst select and approve exact numeric changes. Calculated Excel cells are never intentionally overwritten; formulas remain in the workbook and Excel recalculates them when opened.
+1. Upload a **searchable PDF CIM** and provide your own OpenAI API key.
+2. Select **Analyze CIM**. The app extracts the eight IC memo narratives and a separate structured annual financial dataset in USD millions; missing and inconsistent fields remain unverified.
+3. Upload your own compatible **14-tab `.xlsx` LBO template** in the **Full 14-tab LBO** screen. DealLens does not ship any customer's workbook or confidential information in the GitHub repository.
+4. Choose the final pre-close financial year. Generate and download a `.xlsx` containing the **same 14 sheets** as the template: COVER, ASSUMPTIONS, SUMMARY, REV, EXP, D&A, NWC, DEBT, IS, BS, CF, R, COMPS, CAP. The model attempts to fill supported historical and management forecast inputs in its appropriate schedules. Input-cell comments and SUMMARY source audit record CIM source pages; old financial data and comparables are cleared.
+5. **Review all cells, complete unavailable inputs and transaction assumptions manually**, and open the workbook in Excel to recalculate. Keep the model's original integrated formulas, but confirm they make sense for the new business and capital structure. This app does not guarantee all financial details are extracted from a CIM.
+6. Reupload the **Excel-recalculated workbook** in Verification to read sponsor MOIC from `R!E21` and IRR from `R!E22`, confirm assumptions, and download the **two-page formatted Word IC memo**.
 
-**This is a manual-reviewed assumptions overlay, not automatic reconstruction of a deal from a CIM.** Existing historicals, forecast assumptions, working-capital schedules, tax basis, ownership, and operating cases remain as they were in the uploaded workbook unless explicitly changed. Do not repurpose a populated model for another transaction without auditing and replacing all deal-specific inputs.
+**Investment decision policy:** A proceed recommendation is prohibited unless the analyst confirms a credible model supports **both sponsor MOIC >= 3.0x and sponsor IRR >= 25%**, with no unresolved core missing inputs. Returns below either threshold are rejected; unverified or uncached results are placed on hold. Reaching both thresholds does not equal investment approval.
 
-The mapper contains only generic worksheet names, row labels, and cell addresses. It contains no third-party model, CIM, deal figures, document text, or client data. Some Excel features may not survive the workbook round-trip: independently compare exported sheets, formulas, formatting and calculations before using any model in an investment decision.
+The Word memo condenses the user's specified eight sections into two intentionally composed pages with a returns-and-recommendation header, business overview, financials, market, growth, risks, thesis and buyer hypotheses.
+
+This is a **prototype that maps the supplied style of workbook**, not a generic model-mapping system. It will reject a workbook with different tab names/order or structural formula locations. If a new CIM lacks complete historical statements, detailed cost categories, working capital or forecast data, the generated file will contain gaps, which must be resolved before investment use. Outlook beyond the CIM can be extended as a clearly identified analyst assumption. Comparable-company values are **not** independently researched.
 
 ## Important limitations
 
