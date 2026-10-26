@@ -21,7 +21,7 @@ MISSING = "Not established in the uploaded CIM. Further diligence required."
 # Sentence breaks are defined at punctuation + uppercase word starts rather
 # than character counts. A period after the abbreviation "p." in [CIM p. N]
 # must not be treated as a sentence break.
-_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\[])")
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+(?=[A-Z(])")
 _CITATION_BREAK = re.compile(r"(\[CIM p\.)\s+(\d+\])")
 
 
