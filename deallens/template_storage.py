@@ -1,7 +1,7 @@
 """Private, reusable LBO template loader for Streamlit Community Cloud.
 
 Never commit the underlying workbook or its encoded data to the public repo.
-Set LBO_TEMPLATE_GZIP_BASE64 once in the Streamlit app's Secrets configuration.
+Set [lbo_template] gzip_base64 once in Streamlit Secrets.
 """
 import base64
 import gzip
@@ -41,10 +41,13 @@ def decode_template(encoded):
 
 def get_saved_template(secrets=None):
     """Use Streamlit Secrets or a runtime environment secret, not repository files."""
+    # Use a named TOML section: root secrets also become OS environment
+    # variables, where this compressed workbook may exceed the 128KB limit.
     data = os.environ.get(KEY)
     if not data and secrets is not None:
         try:
-            data = secrets.get(KEY)
+            section = secrets.get("lbo_template", {})
+            data = section.get("gzip_base64") if section else None
         except (KeyError, FileNotFoundError, RuntimeError):
             data = None
     if not data:
