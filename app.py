@@ -6,6 +6,7 @@ from deallens.ingest import extract_pdf_pages
 from deallens.memo import analyze_cim, blank_memo, FIELD_GROUPS
 from deallens.lbo import Assumptions, calculate_lbo
 from deallens.exports import export_memo, export_lbo
+from deallens.template_mapper import inspect_template, populate_template
 
 st.set_page_config(page_title="DealLens | Private Equity", page_icon="📊", layout="wide")
 st.title("DealLens")
@@ -35,7 +36,7 @@ if not st.session_state.company:
     st.info("Load the fictional demo or analyze your own searchable PDF.")
     st.stop()
 st.subheader(st.session_state.company)
-memo_tab, history_tab, lbo_tab, notes_tab=st.tabs(["IC memo","Historical figures","LBO model","Review notes"])
+memo_tab, history_tab, lbo_tab, template_tab, notes_tab=st.tabs(["IC memo","Historical figures","LBO model","Excel template","Review notes"])
 with memo_tab:
     st.caption("All sections editable. AI-generated source references require manual checking.")
     for section, fields in FIELD_GROUPS:
@@ -87,6 +88,56 @@ with lbo_tab:
         st.download_button("Download Excel LBO",export_lbo(a,results),"DealLens_LBO.xlsx")
         if not st.session_state.verified: st.warning("Underlying data not marked verified.")
     except ValueError as exc: st.error(str(exc))
+
+with template_tab:
+    st.subheader("Populate an existing LBO workbook")
+    st.caption("This stage preserves an uploaded workbook and edits only explicitly approved assumption cells. It does NOT reconstruct historical financial schedules from the CIM.")
+    st.warning("A populated example workbook contains old transaction data. Do not reuse it for a different company without replacing and verifying ALL historicals, forecasts, ownership and transaction assumptions. Use fictional or authorized materials only.")
+    template_upload = st.file_uploader("Upload your editable Excel LBO template (.xlsx)", type=["xlsx"], key="lbo_template")
+    if template_upload is not None:
+        try:
+            raw_template = template_upload.getvalue()
+            preview = inspect_template(raw_template)
+            st.success(f"Recognized integrated LBO profile: {len(preview['sheets'])} tabs and {len(preview['inputs'])} mapped hardcoded assumptions.")
+            st.caption("Proposed entry, exit, leverage and tax values are copied from the simple LBO control panel. All other proposed values begin as the workbook's existing values. Select every cell you want to change.")
+            table = pd.DataFrame(preview["inputs"])
+            proposals = {
+                "entry_multiple": entry,
+                "exit_multiple": exitmult,
+                "leverage": debt,
+                "tax_rate": tax,
+            }
+            for i, row in table.iterrows():
+                if row["key"] in proposals:
+                    table.at[i, "proposed"] = float(proposals[row["key"]])
+            columns = ["apply", "input", "cell", "current", "proposed", "editable", "key"]
+            changed = st.data_editor(table[columns], hide_index=True, use_container_width=True,
+                                     disabled=["input", "cell", "current", "editable", "key"],
+                                     key="template_mapping_editor")
+            st.caption("This input overlay preserves the original Excel formulas. It cannot calculate Excel formulas inside Streamlit. Excel will recalculate when you open the exported workbook.")
+            approved = st.checkbox(
+                "I have verified the workbook belongs to the intended deal, and I approve the selected cell replacements.",
+                key="template_confirm"
+            )
+            updates = {str(r["key"]): r["proposed"] for r in changed.to_dict("records") if r["apply"]}
+            if any(r["apply"] and not r["editable"] for r in changed.to_dict("records")):
+                st.error("One of the selected target cells is a formula and cannot be overwritten.")
+            elif approved and updates:
+                try:
+                    rewritten, touched = populate_template(raw_template, updates)
+                    st.download_button("Download template with approved inputs", rewritten,
+                                       file_name="DealLens_Populated_Template.xlsx",
+                                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                       key="download_template")
+                    st.caption("Updated: " + ", ".join(touched) + ". All other workbook cells remain as supplied, subject to ordinary Excel workbook round-tripping.")
+                except ValueError as exc:
+                    st.error(str(exc))
+            else:
+                st.info("Select input rows, edit their proposed values, and approve the cell replacements to enable export.")
+        except ValueError as exc:
+            st.error(str(exc))
+            st.info("Currently supports the integrated 14-tab model layout you provided. A generic template-mapping wizard is planned.")
+
 with notes_tab:
     for note in st.session_state.notes: st.write("- "+note)
     st.caption("No independent market research or independently verified buyer universe is included.")
