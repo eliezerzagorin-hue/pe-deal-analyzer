@@ -107,10 +107,12 @@ with review_tab:
         value=st.session_state.reviewed)
     numeric_blockers=[x for x in st.session_state.issues if
         x.startswith("Missing ") or "no CIM forecast revenue" in x or "needs COGS" in x]
-    if numeric_blockers:
-        st.error("Unresolved missing/unsupported numerical inputs block a proceed recommendation. Complete the workbook and verify every blank source field before relying on the results.")
+    resolved=st.checkbox("I also corrected or supplied every previously missing numerical input in the recalculated Excel workbook and confirmed all reconciliation checks pass.",key="resolved_missing")
+    if numeric_blockers and not resolved:
+        st.error("Unresolved missing/unsupported inputs block a proceed recommendation. Update, recalculate and reupload Excel, then explicitly confirm you resolved them.")
+    effective_blockers=[] if (resolved and st.session_state.returns and st.session_state.reviewed) else numeric_blockers
     moic,irr=st.session_state.returns or (None,None)
-    state,explanation=recommendation(moic,irr,st.session_state.reviewed,numeric_blockers)
+    state,explanation=recommendation(moic,irr,st.session_state.reviewed,effective_blockers)
     st.subheader("Decision: "+state)
     st.write(explanation)
     st.caption("Strict gate: BOTH 3.0x sponsor MOIC and 25% sponsor IRR, using the verified sponsor returns in your recalculated template. No threshold override.")
@@ -122,6 +124,8 @@ with memo_tab:
     moic,irr=st.session_state.returns or (None,None)
     blockers=[x for x in st.session_state.issues if
         x.startswith("Missing ") or "no CIM forecast revenue" in x or "needs COGS" in x]
+    if st.session_state.get("resolved_missing") and st.session_state.reviewed and st.session_state.returns:
+        blockers=[]
     status,_=recommendation(moic,irr,st.session_state.reviewed,blockers)
     st.write("**Current recommendation:** "+status)
     memo_bytes=export_two_page_ic(st.session_state.company,st.session_state.memo,moic,irr,
