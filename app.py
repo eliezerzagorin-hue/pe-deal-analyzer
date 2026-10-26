@@ -349,7 +349,7 @@ with review_tab:
 with memo_tab:
     st.subheader("Investment committee brief")
     st.write(
-        "A concise, two-page Word memorandum covering the business, historical financials, "
+        "A concise Word memorandum with two to five complete sentences per major section, covering business operations, historical financials, "
         "industry, growth, merits and risks, investment thesis, potential exit paths, and recommendation."
     )
     moic, irr = st.session_state.returns or (None, None)
@@ -365,11 +365,11 @@ with memo_tab:
         blockers = []
     status, _ = recommendation(moic, irr, st.session_state.reviewed, blockers)
     with st.container(border=True):
-        st.caption("WORD DELIVERABLE  /  TWO PAGES")
+        st.caption("WORD DELIVERABLE  /  BLACK & WHITE  /  11 PT")
         st.markdown("#### " + st.session_state.company + " | Initial investment screen")
         st.write("**Recommendation:** " + status)
         st.caption(
-            "The memo uses CIM-derived narrative. A conditional proceed recommendation "
+            "Sections use complete CIM-supported sentences. Page count may grow when details warrant it. A conditional proceed recommendation "
             "requires verified five-year sponsor returns."
         )
         memo_bytes = export_two_page_ic(
