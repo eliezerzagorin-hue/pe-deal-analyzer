@@ -7,7 +7,20 @@ def test_streamlit_homepage_loads_without_exception():
     at=AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py",default_timeout=30).run()
     assert not at.exception, "\n".join(str(e.message) for e in at.exception)
     assert at.title
-    assert "DealLens" in at.title[0].value
+    assert "Underwriting" in at.title[0].value
+    assert any("DealLens" in item.value for item in at.sidebar.title)
+    assert len(at.tabs) == 0  # Workflow appears only after a CIM/demo is loaded
+
+def test_branded_demo_workspace_loads_and_preserves_three_steps():
+    at=AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py",default_timeout=30).run()
+    demo=next(b for b in at.sidebar.button if "fictional demo" in b.label.lower())
+    demo.click().run()
+    assert not at.exception, "\\n".join(str(e.message) for e in at.exception)
+    assert any("Northstar" in item.value for item in at.title)
+    assert len(at.tabs)==3
+    assert "Build LBO" in at.tabs[0].label
+    assert "Verify returns" in at.tabs[1].label
+    assert "IC memo" in at.tabs[2].label
 
 
 def test_deployment_imports_all_lbo_entrypoints():
