@@ -106,13 +106,31 @@ def test_strict_return_gate():
 
 def test_word_memo_is_monochrome_eleven_point_with_substantive_sections():
     from docx.shared import Pt
-    data=export_two_page_ic("Demo Company",demo_memo(),moic=2.9,irr=.24,verified=True,issues=[])
+    from deallens.ic_brief import _sentences
+
+    # Longer content is constrained by complete sentences, never arbitrarily
+    # clipped to a character count; citations must stay with the cited claim.
+    text = (
+        "The company serves industrial customers [CIM p. 11]. "
+        "Revenue grew with strong repeat demand [CIM p. 12]. "
+        "Customer concentration warrants review [CIM p. 13]. "
+        "Margins expanded as capacity utilization improved [CIM p. 14]. "
+        "Management projects another expansion [CIM p. 15]. "
+        "Another forecast claim is outside the fifth sentence [CIM p. 16]."
+    )
+    assert "Management projects another expansion [CIM p. 15]." in _sentences(text)
+    assert "Another forecast claim" not in _sentences(text)
+    memo = demo_memo()
+    memo["investment_thesis"] = text
+    data=export_two_page_ic("Demo Company",memo,moic=2.9,irr=.24,verified=True,issues=[])
     doc=__import__("docx").Document(BytesIO(data))
     all_text=" ".join(p.text for p in doc.paragraphs)
     for section in ("Business Overview", "Historical Financial Performance", "Market and Competition",
                     "Growth Opportunities", "Investment Merits, Risks and Mitigants",
                     "Investment Thesis", "Potential Exits and Buyer Universe", "Recommendation"):
         assert section in all_text
+    assert "Management projects another expansion [CIM p. 15]." in all_text
+    assert "Another forecast claim" not in all_text
     assert "DO NOT PROCEED" in all_text
     assert "Screening (continued)" not in all_text
     assert "DEALLENS" not in all_text
@@ -127,5 +145,7 @@ def test_word_memo_is_monochrome_eleven_point_with_substantive_sections():
     import zipfile
     with zipfile.ZipFile(BytesIO(data)) as z:
         xml=z.read("word/document.xml")
-    assert b'w:type="page"' in xml
+    # Page breaks are no longer forced because page count may grow to fit
+    # the full cited prose at the user's 11pt font minimum.
+    assert b'w:type="page"' not in xml
 
